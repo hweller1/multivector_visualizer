@@ -18,9 +18,9 @@ hnsw_rs            = "0.3"
 rand               = { version = "0.8", features = ["small_rng"] }
 indicatif          = "0.17"
 reqwest            = { version = "0.12", features = ["json", "stream"] }
-mongodb            = { version = "3", features = ["tokio-runtime"] }
+mongodb            = { version = "3" }
 async-trait        = "0.1"
-tokenizers         = { version = "0.19", default-features = false, features = ["wordpiece"] }
+tokenizers         = { version = "0.21" }
 which              = "6"
 rayon              = "1"
 half               = "2"
