@@ -1,0 +1,13 @@
+[package]
+name = "warp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common   = { path = "../common" }
+colbert  = { path = "../colbert" }
+tokio    = { workspace = true }
+anyhow   = { workspace = true }
+serde    = { workspace = true }
+serde_json = { workspace = true }
+tracing  = { workspace = true }
