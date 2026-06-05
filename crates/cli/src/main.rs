@@ -7,6 +7,7 @@ use clap::Parser;
 use colbert::ColBertEngine;
 use commands::{BenchTarget, Cli, EngineCmd, TopCommand};
 use common::{SuggestionMode, VizRepl};
+use hnsw::HnswEngine;
 use plaid::PlaidEngine;
 use tachiom::TachiomEngine;
 use warp::WarpEngine;
@@ -103,7 +104,23 @@ async fn main() -> anyhow::Result<()> {
                     repl::run_repl(&mut eng, viz).await?;
                 }
                 EngineCmd::Hnsw => {
-                    println!("HNSW engine requires Atlas Vector Search hardware — not available in this demo build.");
+                    let mut eng = HnswEngine::new_local();
+                    let viz = VizRepl {
+                        engine_name: "hnsw",
+                        suggestions: SuggestionMode::Sequence {
+                            suggestions: vec![
+                                "index 0".into(),
+                                "index 1".into(),
+                                "inspect layers".into(),
+                                "query river erosion along the bank".into(),
+                                "query open a checking account at the bank".into(),
+                                "inspect graph".into(),
+                            ],
+                            index: 0,
+                        },
+                        trace_path: cli.trace_json,
+                    };
+                    repl::run_repl(&mut eng, viz).await?;
                 }
             }
         }

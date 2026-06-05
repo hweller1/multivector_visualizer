@@ -13,3 +13,7 @@ serde_json  = { workspace = true }
 tracing     = { workspace = true }
 rand        = { workspace = true }
 async-trait = { workspace = true }
+
+[dev-dependencies]
+colbert = { path = "../colbert" }
+tokio = { workspace = true }

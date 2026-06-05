@@ -1,5 +1,6 @@
 use colbert::ColBertEngine;
 use common::Engine;
+use hnsw::HnswEngine;
 use plaid::PlaidEngine;
 use tachiom::TachiomEngine;
 use warp::WarpEngine;
@@ -22,12 +23,14 @@ pub async fn run_compare() -> anyhow::Result<()> {
     let mut plaid = PlaidEngine::new(&vocab_path)?;
     let mut warp_engine = WarpEngine::new(&vocab_path)?;
     let mut tachiom = TachiomEngine::new(&vocab_path)?;
+    let mut hnsw_engine = HnswEngine::new_local();
 
     for (doc_id, text) in common::SHARED_CORPUS {
         colbert.index(*doc_id, text).await?;
         plaid.index(*doc_id, text).await?;
         warp_engine.index(*doc_id, text).await?;
         tachiom.index(*doc_id, text).await?;
+        hnsw_engine.index(*doc_id, text).await?;
     }
 
     println!("\nQuery: \"{query}\"");
@@ -84,10 +87,15 @@ pub async fn run_compare() -> anyhow::Result<()> {
         "tachiom", "per-type centroids", "TAC→CentANN→MaxSim", tachiom_top1
     );
 
-    // HNSW stub
+    // HNSW
+    let (hnsw_results, _) = hnsw_engine.query(query, 5).await?;
+    let hnsw_top1 = hnsw_results
+        .first()
+        .map(|(id, s)| format!("doc={id} ({s:.3})"))
+        .unwrap_or_default();
     println!(
-        "{:<12} | {:<20} | {:<30} | (requires Atlas)",
-        "hnsw", "HNSW graph", "GreedyANN (single-vec)"
+        "{:<12} | {:<20} | {:<30} | {}",
+        "hnsw", "HNSW graph", "GreedyANN (single-vec)", hnsw_top1
     );
 
     println!();
@@ -103,6 +111,7 @@ pub async fn run_compare() -> anyhow::Result<()> {
     let compare_data = serde_json::json!({
         "query": query,
         "results": {
+            "hnsw": hnsw_results,
             "colbert": colbert_results,
             "plaid": plaid_results,
             "warp": warp_results,

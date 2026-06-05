@@ -1,6 +1,7 @@
 use anyhow::Result;
 use colbert::ColBertEngine;
 use common::{Engine, ScenarioRunner};
+use hnsw::HnswEngine;
 use plaid::PlaidEngine;
 use std::path::PathBuf;
 use tachiom::TachiomEngine;
@@ -49,7 +50,8 @@ pub async fn run_demo(name: &str, dry_run: bool, _trace_json: Option<PathBuf>) -
             run_with_engine(&runner, &mut engine).await?;
         }
         "hnsw" => {
-            println!("HNSW engine requires Atlas Vector Search hardware — not available in this demo build.");
+            let mut engine = HnswEngine::new_local();
+            run_with_engine(&runner, &mut engine).await?;
         }
         "compare" => {
             crate::compare::run_compare().await?;
