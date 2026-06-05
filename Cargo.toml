@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/common", "crates/hnsw", "crates/colbert", "crates/plaid",
+  "crates/warp", "crates/tachiom", "crates/bench", "crates/cli"
+]
+
+[workspace.dependencies]
+tokio              = { version = "1", features = ["full"] }
+anyhow             = "1"
+serde              = { version = "1", features = ["derive"] }
+serde_json         = "1"
+toml               = "0.8"
+tracing            = "0"
+tracing-subscriber = { version = "0.3", features = ["json"] }
+clap               = { version = "4", features = ["derive"] }
+hnsw_rs            = "0.3"
+rand               = { version = "0.8", features = ["small_rng"] }
+indicatif          = "0.17"
+reqwest            = { version = "0.12", features = ["json", "stream"] }
+mongodb            = { version = "3", features = ["tokio-runtime"] }
+async-trait        = "0.1"
+tokenizers         = { version = "0.19", default-features = false, features = ["wordpiece"] }
+which              = "6"
+rayon              = "1"
+half               = "2"
+dotenvy            = "0.15"
+
+[patch.crates-io]
+# TACHIOM private git deps — SHAs resolved in Phase 2 task 2.13
+# vectorium = { git = "https://github.com/TusKANNy/vectorium", rev = "REPLACE_WITH_SHA" }
+# kannolo   = { git = "https://github.com/TusKANNy/kannolo",   rev = "REPLACE_WITH_SHA" }
