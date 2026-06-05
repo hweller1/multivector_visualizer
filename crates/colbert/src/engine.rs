@@ -6,8 +6,8 @@ use common::{Engine, TraceEvent, TraceLog};
 use std::cell::RefCell;
 
 pub struct ColBertEngine {
-    encoder: RefCell<ColBertEncoder>,
-    index: ColBertIndex,
+    pub encoder: RefCell<ColBertEncoder>,
+    pub index: ColBertIndex,
     #[allow(dead_code)]
     last_trace: Option<TraceLog>,
     next_doc_id: u32,

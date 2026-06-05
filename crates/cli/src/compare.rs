@@ -36,7 +36,7 @@ pub async fn run_compare() -> anyhow::Result<()> {
     // Print header
     println!(
         "{:<12} | {:<20} | {:<30} | Top-1 Result",
-        "Engine", "Index Structure", "Pipeline Stages"
+        "Engine", "index structure", "Pipeline Stages"
     );
     println!("{}", "-".repeat(85));
 
