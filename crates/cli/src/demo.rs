@@ -1,11 +1,24 @@
-use std::path::PathBuf;
 use anyhow::Result;
-use common::{Engine, ScenarioRunner, TraceLog};
 use colbert::ColBertEngine;
+use common::{Engine, ScenarioRunner};
+use plaid::PlaidEngine;
+use std::path::PathBuf;
+use tachiom::TachiomEngine;
+use warp::WarpEngine;
+
+fn vocab_path() -> PathBuf {
+    std::env::var("MULTIVECTOR_VOCAB")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::current_dir()
+                .unwrap()
+                .join("vocab/wordpiece_vocab.txt")
+        })
+}
 
 pub async fn run_demo(name: &str, dry_run: bool, _trace_json: Option<PathBuf>) -> Result<()> {
     if name == "compare" {
-        println!("compare not yet implemented");
+        crate::compare::run_compare().await?;
         return Ok(());
     }
 
@@ -16,18 +29,30 @@ pub async fn run_demo(name: &str, dry_run: bool, _trace_json: Option<PathBuf>) -
 
     // Determine which engine to construct based on scenario.meta.engine
     let engine_name = runner.scenario.meta.engine.clone();
+    let vp = vocab_path();
 
     match engine_name.as_str() {
         "colbert" => {
-            let vocab_path = std::env::var("MULTIVECTOR_VOCAB")
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| {
-                    std::env::current_dir()
-                        .unwrap()
-                        .join("vocab/wordpiece_vocab.txt")
-                });
-            let mut engine = ColBertEngine::new(&vocab_path)?;
+            let mut engine = ColBertEngine::new(&vp)?;
             run_with_engine(&runner, &mut engine).await?;
+        }
+        "plaid" => {
+            let mut engine = PlaidEngine::new(&vp)?;
+            run_with_engine(&runner, &mut engine).await?;
+        }
+        "warp" => {
+            let mut engine = WarpEngine::new(&vp)?;
+            run_with_engine(&runner, &mut engine).await?;
+        }
+        "tachiom" => {
+            let mut engine = TachiomEngine::new(&vp)?;
+            run_with_engine(&runner, &mut engine).await?;
+        }
+        "hnsw" => {
+            println!("HNSW engine requires Atlas Vector Search hardware — not available in this demo build.");
+        }
+        "compare" => {
+            crate::compare::run_compare().await?;
         }
         other => {
             println!("engine '{other}' not yet implemented");
@@ -38,35 +63,49 @@ pub async fn run_demo(name: &str, dry_run: bool, _trace_json: Option<PathBuf>) -
 }
 
 async fn run_with_engine<E: Engine>(runner: &ScenarioRunner, engine: &mut E) -> Result<()> {
-    runner.run(|op, args| {
-        // We need to dispatch into the engine — but we can't capture a mutable ref
-        // in a closure that outlives itself. Use a raw pointer trick for single-thread demo.
-        let engine_ptr: *mut E = engine as *mut E;
-        async move {
-            // Safety: single-threaded demo; engine outlives all futures.
-            let e = unsafe { &mut *engine_ptr };
-            dispatch_op(e, &op, args).await
-        }
-    }).await
+    runner
+        .run(|op, args| {
+            // We need to dispatch into the engine — but we can't capture a mutable ref
+            // in a closure that outlives itself. Use a raw pointer trick for single-thread demo.
+            let engine_ptr: *mut E = engine as *mut E;
+            async move {
+                // Safety: single-threaded demo; engine outlives all futures.
+                let e = unsafe { &mut *engine_ptr };
+                dispatch_op(e, &op, args).await
+            }
+        })
+        .await
 }
 
 async fn dispatch_op<E: Engine>(engine: &mut E, op: &str, args: Vec<String>) -> anyhow::Result<()> {
     match op {
         "index" => {
-            // args[0] is a doc_id string → look up in SHARED_CORPUS
-            let doc_id: u32 = args.get(0)
-                .ok_or_else(|| anyhow::anyhow!("index: missing doc_id argument"))?
-                .parse()
-                .map_err(|e| anyhow::anyhow!("index: invalid doc_id: {e}"))?;
+            let arg = args
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("index: missing doc_id argument"))?;
 
-            let text = common::SHARED_CORPUS.iter()
-                .find(|(id, _)| *id == doc_id)
-                .map(|(_, text)| *text)
-                .ok_or_else(|| anyhow::anyhow!("index: doc_id {doc_id} not in SHARED_CORPUS"))?;
+            if arg == "all" {
+                for (doc_id, text) in common::SHARED_CORPUS {
+                    let log = engine.index(*doc_id, text).await?;
+                    println!("  indexed doc {doc_id} ({} trace events)", log.events.len());
+                }
+            } else {
+                let doc_id: u32 = arg
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("index: invalid doc_id: {e}"))?;
 
-            let log = engine.index(doc_id, text).await?;
-            if !log.events.is_empty() {
-                println!("  indexed doc {doc_id} ({} trace events)", log.events.len());
+                let text = common::SHARED_CORPUS
+                    .iter()
+                    .find(|(id, _)| *id == doc_id)
+                    .map(|(_, text)| *text)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("index: doc_id {doc_id} not in SHARED_CORPUS")
+                    })?;
+
+                let log = engine.index(doc_id, text).await?;
+                if !log.events.is_empty() {
+                    println!("  indexed doc {doc_id} ({} trace events)", log.events.len());
+                }
             }
         }
         "query" => {
@@ -78,7 +117,7 @@ async fn dispatch_op<E: Engine>(engine: &mut E, op: &str, args: Vec<String>) -> 
             }
         }
         "inspect" => {
-            let target = args.get(0).map(|s| s.as_str());
+            let target = args.first().map(|s| s.as_str());
             let out = engine.inspect(target).await?;
             println!("{out}");
         }

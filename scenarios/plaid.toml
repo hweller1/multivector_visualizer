@@ -1,0 +1,33 @@
+[meta]
+title = "PLAID: Centroid Pruning over ColBERT"
+engine = "plaid"
+description = "Shows how PLAID adds centroid-based candidate pruning to ColBERT's late interaction"
+version = 1
+
+[corpus]
+type = "shared"
+
+[[steps]]
+op = "index"
+args = ["all"]
+narration = "Indexing all 20 docs into PLAID. Each token is assigned to its nearest centroid — building an inverted index from centroid → doc list for fast candidate selection."
+
+[[steps]]
+op = "inspect"
+args = ["centroids"]
+narration = "Inspect centroid structure: how many centroids, how many docs per cluster."
+
+[[steps]]
+op = "query"
+args = ["bank interest rate", "5"]
+narration = "Query: 'bank interest rate'. PLAID first looks up matching centroids, then runs MaxSim only on the candidate docs from those centroids — far fewer than all 20."
+
+[[steps]]
+op = "query"
+args = ["river bank hiking", "5"]
+narration = "Query: 'river bank hiking'. Watch which docs get skipped entirely because their centroid didn't match any query token's top-nprobe centroids."
+
+[[steps]]
+op = "inspect"
+args = ["centroids"]
+narration = "Which centroids were activated in the last query? See how centroid pruning reduces the MaxSim computation."

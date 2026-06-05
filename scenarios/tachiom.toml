@@ -1,0 +1,38 @@
+[meta]
+title = "TACHIOM: Token-Aware Clustering"
+engine = "tachiom"
+description = "TACHIOM runs 4-phase TAC to build per-token-type centroid sets with budget allocation"
+version = 1
+
+[corpus]
+type = "shared"
+
+[[steps]]
+op = "index"
+args = ["all"]
+narration = "Indexing all docs. TACHIOM's TAC pipeline fires: tail handling, damped scoring, budget reconciliation, then parallel κⱼ-means per token type."
+
+[[steps]]
+op = "trace"
+args = ["tail"]
+narration = "Phase 1 — Tail Handling: tokens with freq < μ=128 are 'tail', μ≤freq<τ=256 are 'normal', ≥τ are 'heavy'. Each class gets different centroid budget treatment."
+
+[[steps]]
+op = "trace"
+args = ["damped"]
+narration = "Phase 2 — Damped Scoring: sⱼ = variance of token type's embeddings. wⱼ = √nⱼ · sⱼ. High-variance token types get more centroids."
+
+[[steps]]
+op = "trace"
+args = ["budget"]
+narration = "Phase 3+4 — Budget: raw κⱼ = B · wⱼ/Σw, then clamp to [ε=4, θ=39], then reconcile leftover budget."
+
+[[steps]]
+op = "inspect"
+args = ["pq"]
+narration = "3-Level Hierarchical PQ: 128-dim/8-subq, 64-dim/4-subq, 32-dim/2-subq. Progressively coarser quantization for fast distance estimation."
+
+[[steps]]
+op = "query"
+args = ["bank interest rate", "5"]
+narration = "Query: 'bank interest rate'. TACHIOM searches per-token-type centroid sets, gathers candidates, and refines with MaxSim — efficient at 4M+ centroids."

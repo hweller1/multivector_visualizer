@@ -34,12 +34,13 @@ pub struct WordPieceTokenizer {
 impl WordPieceTokenizer {
     /// Load vocab from a vocab.txt path (bert-base-uncased style, one token per line).
     pub fn from_vocab(vocab_path: &std::path::Path) -> Result<Self> {
+        use tokenizers::decoders::wordpiece::WordPiece as WordPieceDecoder;
         use tokenizers::models::wordpiece::WordPiece;
         use tokenizers::normalizers::bert::BertNormalizer;
         use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
-        use tokenizers::decoders::wordpiece::WordPiece as WordPieceDecoder;
 
-        let vocab_str = vocab_path.to_str()
+        let vocab_str = vocab_path
+            .to_str()
             .ok_or_else(|| anyhow::anyhow!("invalid vocab path"))?;
 
         let wordpiece = WordPiece::from_file(vocab_str)
@@ -72,7 +73,10 @@ pub struct RandomProjection {
 
 impl RandomProjection {
     pub fn new(seed: u64) -> Self {
-        Self { seed, cache: Default::default() }
+        Self {
+            seed,
+            cache: Default::default(),
+        }
     }
 
     /// Returns a deterministic 128-dim unit vector for a vocab token ID.
@@ -80,8 +84,8 @@ impl RandomProjection {
         if let Some(cached) = self.cache.get(&token_id) {
             return *cached;
         }
-        use rand::{Rng, SeedableRng};
         use rand::rngs::SmallRng;
+        use rand::{Rng, SeedableRng};
         let mut rng = SmallRng::seed_from_u64(self.seed ^ token_id as u64);
         let mut v = [0f32; TOKEN_DIM];
         for x in v.iter_mut() {
@@ -98,9 +102,10 @@ impl RandomProjection {
 
     /// Embed a full token sequence → TokenMatrix.
     pub fn embed(&mut self, vocab_ids: &[u32], tokens: &[String]) -> TokenMatrix {
-        let rows: Vec<[f32; TOKEN_DIM]> = vocab_ids.iter()
-            .map(|&id| self.project(id))
-            .collect();
-        TokenMatrix { tokens: tokens.to_vec(), rows }
+        let rows: Vec<[f32; TOKEN_DIM]> = vocab_ids.iter().map(|&id| self.project(id)).collect();
+        TokenMatrix {
+            tokens: tokens.to_vec(),
+            rows,
+        }
     }
 }

@@ -1,7 +1,11 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "multivector", version, about = "Multivector retrieval educational CLI")]
+#[command(
+    name = "multivector",
+    version,
+    about = "Multivector retrieval educational CLI"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: TopCommand,

@@ -1,0 +1,33 @@
+[meta]
+title = "WARP: Xtr Gather then MaxSim Refine"
+engine = "warp"
+description = "WARP replaces centroid ANN with Xtr token-level relevance scores for candidate gathering"
+version = 1
+
+[corpus]
+type = "shared"
+
+[[steps]]
+op = "index"
+args = ["all"]
+narration = "Indexing all docs. WARP builds both a ColBERT inverted token store and an Xtr registry mapping token types to their per-doc max dot products."
+
+[[steps]]
+op = "inspect"
+args = ["gather"]
+narration = "Inspect gather statistics — see the fraction of docs promoted to the MaxSim refinement stage."
+
+[[steps]]
+op = "query"
+args = ["bank interest rate", "5"]
+narration = "Query: 'bank interest rate'. WARP gathers candidates via Xtr token scores (not centroid ANN), then refines with full MaxSim."
+
+[[steps]]
+op = "trace"
+args = ["xtr"]
+narration = "Trace the XtrScore event for each query token — see the per-doc relevance scores before the t_prime threshold cut."
+
+[[steps]]
+op = "inspect"
+args = ["gather"]
+narration = "After querying: what fraction of docs were promoted? Was the Xtr threshold effective at pruning?"

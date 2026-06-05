@@ -1,5 +1,5 @@
-use std::io::{self, BufRead, Write};
 use common::{Engine, TraceLog, VizRepl};
+use std::io::{self, BufRead, Write};
 
 pub async fn run_repl(engine: &mut dyn Engine, mut viz: VizRepl) -> anyhow::Result<()> {
     println!("  {} REPL — type 'help' for commands", engine.name());

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use common::{TokenMatrix, TraceEvent, TraceLog, WordPieceTokenizer, RandomProjection};
+use common::{RandomProjection, TokenMatrix, TraceEvent, TraceLog, WordPieceTokenizer};
 
 pub struct ColBertEncoder {
     pub(crate) tokenizer: WordPieceTokenizer,
@@ -10,12 +10,18 @@ impl ColBertEncoder {
     pub fn new(vocab_path: &std::path::Path, seed: u64) -> Result<Self> {
         let tokenizer = WordPieceTokenizer::from_vocab(vocab_path)?;
         let projection = RandomProjection::new(seed);
-        Ok(Self { tokenizer, projection })
+        Ok(Self {
+            tokenizer,
+            projection,
+        })
     }
 
     /// Tokenize and embed text, returning (TokenMatrix, vocab_ids).
     pub fn encode(&mut self, text: &str) -> Result<(TokenMatrix, Vec<u32>)> {
-        let encoding = self.tokenizer.inner.encode(text, false)
+        let encoding = self
+            .tokenizer
+            .inner
+            .encode(text, false)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let tokens: Vec<String> = encoding.get_tokens().to_vec();
         let vocab_ids: Vec<u32> = encoding.get_ids().to_vec();

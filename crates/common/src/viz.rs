@@ -23,7 +23,10 @@ impl Drop for VizGuard {
 pub enum SuggestionMode {
     #[default]
     None,
-    Sequence { suggestions: Vec<String>, index: usize },
+    Sequence {
+        suggestions: Vec<String>,
+        index: usize,
+    },
 }
 
 impl SuggestionMode {

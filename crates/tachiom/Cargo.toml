@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-common     = { path = "../common" }
-anyhow     = { workspace = true }
-serde      = { workspace = true }
-serde_json = { workspace = true }
-rayon      = { workspace = true }
-half       = { workspace = true }
+common      = { path = "../common" }
+colbert     = { path = "../colbert" }
+anyhow      = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+rayon       = { workspace = true }
+half        = { workspace = true }
+rand        = { workspace = true }
+async-trait = { workspace = true }
+tokio       = { workspace = true }

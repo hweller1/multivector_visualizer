@@ -10,11 +10,16 @@ pub fn maxsim(query: &TokenMatrix, doc: &TokenMatrix) -> f32 {
     if query.rows.is_empty() || doc.rows.is_empty() {
         return 0.0;
     }
-    query.rows.iter().map(|q_tok| {
-        doc.rows.iter()
-            .map(|d_tok| cosine(q_tok, d_tok))
-            .fold(f32::NEG_INFINITY, f32::max)
-    }).sum()
+    query
+        .rows
+        .iter()
+        .map(|q_tok| {
+            doc.rows
+                .iter()
+                .map(|d_tok| cosine(q_tok, d_tok))
+                .fold(f32::NEG_INFINITY, f32::max)
+        })
+        .sum()
 }
 
 /// Returns (score, full matrix rows×cols, row_maxima) for MaxSimMatrix trace event.

@@ -1,13 +1,14 @@
-use std::cell::RefCell;
+use crate::encoder::ColBertEncoder;
+use crate::index::ColBertIndex;
 use anyhow::Result;
 use async_trait::async_trait;
 use common::{Engine, TraceEvent, TraceLog};
-use crate::encoder::ColBertEncoder;
-use crate::index::ColBertIndex;
+use std::cell::RefCell;
 
 pub struct ColBertEngine {
     encoder: RefCell<ColBertEncoder>,
     index: ColBertIndex,
+    #[allow(dead_code)]
     last_trace: Option<TraceLog>,
     next_doc_id: u32,
 }
@@ -17,7 +18,7 @@ unsafe impl Sync for ColBertEngine {}
 
 impl ColBertEngine {
     pub fn new(vocab_path: &std::path::Path) -> Result<Self> {
-        let encoder = ColBertEncoder::new(vocab_path, 0xCAFEBABE_DEADBEEF)?;
+        let encoder = ColBertEncoder::new(vocab_path, 0x0123456789ABCDEF)?;
         Ok(Self {
             encoder: RefCell::new(encoder),
             index: ColBertIndex::new(),
@@ -34,8 +35,8 @@ impl Engine for ColBertEngine {
     }
 
     async fn index(&mut self, doc_id: u32, text: &str) -> Result<TraceLog> {
-        let (matrix, _vocab_ids, mut log) = self.encoder.borrow_mut()
-            .encode_with_trace(doc_id, text)?;
+        let (matrix, _vocab_ids, mut log) =
+            self.encoder.borrow_mut().encode_with_trace(doc_id, text)?;
 
         // Emit one HnswInsert-style event per token (logical insertion, not an ANN graph).
         // REPL narration: "ColBERT's logical insertion, not yet an ANN graph — that comes in PLAID."
@@ -84,12 +85,11 @@ impl Engine for ColBertEngine {
                 }
                 Ok(out)
             }
-            None => {
-                Ok(format!("ColBERT index: {} documents", self.index.docs.len()))
-            }
-            Some(other) => {
-                Ok(format!("Unknown target '{other}'. Available: tokens"))
-            }
+            None => Ok(format!(
+                "ColBERT index: {} documents",
+                self.index.docs.len()
+            )),
+            Some(other) => Ok(format!("Unknown target '{other}'. Available: tokens")),
         }
     }
 

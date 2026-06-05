@@ -1,12 +1,25 @@
 mod commands;
-mod repl;
-mod demo;
 mod compare;
+mod demo;
+mod repl;
 
 use clap::Parser;
-use commands::{Cli, EngineCmd, TopCommand};
-use common::{SuggestionMode, VizRepl};
 use colbert::ColBertEngine;
+use commands::{BenchTarget, Cli, EngineCmd, TopCommand};
+use common::{SuggestionMode, VizRepl};
+use plaid::PlaidEngine;
+use tachiom::TachiomEngine;
+use warp::WarpEngine;
+
+fn vocab_path() -> std::path::PathBuf {
+    std::env::var("MULTIVECTOR_VOCAB")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::current_dir()
+                .unwrap()
+                .join("vocab/wordpiece_vocab.txt")
+        })
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -16,16 +29,10 @@ async fn main() -> anyhow::Result<()> {
             demo::run_demo(&name, dry_run, cli.trace_json).await?;
         }
         TopCommand::Repl { engine } => {
+            let vp = vocab_path();
             match engine {
                 EngineCmd::Colbert => {
-                    let vocab_path = std::env::var("MULTIVECTOR_VOCAB")
-                        .map(std::path::PathBuf::from)
-                        .unwrap_or_else(|_| {
-                            std::env::current_dir()
-                                .unwrap()
-                                .join("vocab/wordpiece_vocab.txt")
-                        });
-                    let mut engine = ColBertEngine::new(&vocab_path)?;
+                    let mut eng = ColBertEngine::new(&vp)?;
                     let viz = VizRepl {
                         engine_name: "colbert",
                         suggestions: SuggestionMode::Sequence {
@@ -42,15 +49,77 @@ async fn main() -> anyhow::Result<()> {
                         },
                         trace_path: cli.trace_json,
                     };
-                    repl::run_repl(&mut engine, viz).await?;
+                    repl::run_repl(&mut eng, viz).await?;
                 }
-                _ => {
-                    println!("repl for this engine not yet implemented");
+                EngineCmd::Plaid => {
+                    let mut eng = PlaidEngine::new(&vp)?;
+                    let viz = VizRepl {
+                        engine_name: "plaid",
+                        suggestions: SuggestionMode::Sequence {
+                            suggestions: vec![
+                                "index 0".into(),
+                                "index 1".into(),
+                                "inspect centroids".into(),
+                                "query river erosion along the bank".into(),
+                            ],
+                            index: 0,
+                        },
+                        trace_path: cli.trace_json,
+                    };
+                    repl::run_repl(&mut eng, viz).await?;
+                }
+                EngineCmd::Warp => {
+                    let mut eng = WarpEngine::new(&vp)?;
+                    let viz = VizRepl {
+                        engine_name: "warp",
+                        suggestions: SuggestionMode::Sequence {
+                            suggestions: vec![
+                                "index 0".into(),
+                                "index 1".into(),
+                                "inspect gather".into(),
+                                "query river erosion along the bank".into(),
+                            ],
+                            index: 0,
+                        },
+                        trace_path: cli.trace_json,
+                    };
+                    repl::run_repl(&mut eng, viz).await?;
+                }
+                EngineCmd::Tachiom => {
+                    let mut eng = TachiomEngine::new(&vp)?;
+                    let viz = VizRepl {
+                        engine_name: "tachiom",
+                        suggestions: SuggestionMode::Sequence {
+                            suggestions: vec![
+                                "index 0".into(),
+                                "index 1".into(),
+                                "inspect centroids".into(),
+                                "query river erosion along the bank".into(),
+                            ],
+                            index: 0,
+                        },
+                        trace_path: cli.trace_json,
+                    };
+                    repl::run_repl(&mut eng, viz).await?;
+                }
+                EngineCmd::Hnsw => {
+                    println!("HNSW engine requires Atlas Vector Search hardware — not available in this demo build.");
                 }
             }
         }
-        TopCommand::Bench { .. } => {
-            println!("bench not yet implemented");
+        TopCommand::Bench { target } => {
+            let runner = bench::BenchRunner::new();
+            match target {
+                BenchTarget::All => {
+                    runner.run_all().await?;
+                }
+                BenchTarget::CheckSift => {
+                    runner.check_sift().await?;
+                }
+                _ => {
+                    println!("Individual engine benchmarks not yet implemented. Use 'bench all'.");
+                }
+            }
         }
     }
     Ok(())

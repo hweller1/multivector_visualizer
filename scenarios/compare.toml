@@ -1,0 +1,43 @@
+[meta]
+title = "Side-by-Side Engine Comparison"
+engine = "compare"
+description = "Compare all 5 engines on the same query to see architectural differences"
+version = 1
+
+[corpus]
+type = "shared"
+
+[[steps]]
+op = "query"
+args = ["bank interest rate"]
+engine_override = "hnsw"
+narration = "HNSW: single-vector cosine nearest-neighbor search."
+
+[[steps]]
+op = "query"
+args = ["bank interest rate"]
+engine_override = "colbert"
+narration = "ColBERT: per-token MaxSim late interaction, no candidate pruning."
+
+[[steps]]
+op = "query"
+args = ["bank interest rate"]
+engine_override = "plaid"
+narration = "PLAID: centroid ANN prunes candidates before MaxSim."
+
+[[steps]]
+op = "query"
+args = ["bank interest rate"]
+engine_override = "warp"
+narration = "WARP: Xtr token scores gather candidates, MaxSim refines."
+
+[[steps]]
+op = "query"
+args = ["bank interest rate"]
+engine_override = "tachiom"
+narration = "TACHIOM: per-token-type centroid sets, budget-allocated, MaxSim refine."
+
+[[steps]]
+op = "compare"
+args = []
+narration = "Side-by-side table: index structure, pipeline stages, query complexity, memory per token."

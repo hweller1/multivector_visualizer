@@ -1,0 +1,38 @@
+[meta]
+title = "HNSW: Single-Vector Baseline with Atlas"
+engine = "hnsw"
+description = "Voyage-4-large sentence embeddings indexed in Atlas Vector Search HNSW"
+version = 1
+
+[corpus]
+type = "shared"
+
+[[steps]]
+op = "index"
+args = ["0"]
+narration = "Index doc 0 into HNSW. Each doc becomes a single 1536-dim vector — the full sentence collapsed to one point. Word-sense ambiguity ('bank': river vs. financial) is averaged away."
+
+[[steps]]
+op = "inspect"
+args = ["layers"]
+narration = "HNSW layer structure: long-range navigation edges at high layers, precise neighbors at layer 0."
+
+[[steps]]
+op = "query"
+args = ["river erosion along the bank", "5"]
+narration = "Query: 'river bank'. Greedy ANN walk through HNSW graph layers. Single-vector cosine scores."
+
+[[steps]]
+op = "query"
+args = ["open a checking account at the bank", "5"]
+narration = "Query: 'financial bank'. Same bank — does the single vector distinguish financial from river context?"
+
+[[steps]]
+op = "inspect"
+args = ["graph"]
+narration = "Average degree, ef_construction setting, graph density."
+
+[[steps]]
+op = "trace"
+args = ["hnsw"]
+narration = "HnswInsert and HnswQuery trace events — see how layer traversal and edge additions are logged."

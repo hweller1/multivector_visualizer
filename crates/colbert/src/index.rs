@@ -1,5 +1,5 @@
-use common::{TokenMatrix, TraceEvent, TraceLog};
 use crate::maxsim::{maxsim, maxsim_with_matrix};
+use common::{TokenMatrix, TraceEvent, TraceLog};
 
 pub struct ColBertIndex {
     /// One TokenMatrix per indexed document.
@@ -21,7 +21,9 @@ impl ColBertIndex {
 
     /// Brute-force MaxSim over all documents.
     pub fn search(&self, query_matrix: &TokenMatrix, top_k: usize) -> Vec<(u32, f32)> {
-        let mut scores: Vec<(u32, f32)> = self.docs.iter()
+        let mut scores: Vec<(u32, f32)> = self
+            .docs
+            .iter()
             .map(|(doc_id, doc_matrix)| (*doc_id, maxsim(query_matrix, doc_matrix)))
             .collect();
         scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
