@@ -70,8 +70,9 @@ mod tests {
         let vocab_path = std::env::var("MULTIVECTOR_VOCAB")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| {
-                std::env::current_dir()
-                    .unwrap()
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .parent().unwrap()
+                    .parent().unwrap()
                     .join("vocab/wordpiece_vocab.txt")
             });
         let mut engine = TachiomEngine::new(&vocab_path).expect("TachiomEngine::new failed");
