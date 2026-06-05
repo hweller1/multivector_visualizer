@@ -28,14 +28,29 @@ pub trait Tokenizer: Send + Sync {
 
 /// Real WordPiece tokenizer backed by the shipped vocab file.
 pub struct WordPieceTokenizer {
-    pub(crate) inner: tokenizers::Tokenizer,
+    pub inner: tokenizers::Tokenizer,
 }
 
 impl WordPieceTokenizer {
-    /// Load vocab from path. Called once at startup.
+    /// Load vocab from a vocab.txt path (bert-base-uncased style, one token per line).
     pub fn from_vocab(vocab_path: &std::path::Path) -> Result<Self> {
-        let inner = tokenizers::Tokenizer::from_file(vocab_path)
-            .map_err(|e| anyhow::anyhow!("tokenizer load: {e}"))?;
+        use tokenizers::models::wordpiece::WordPiece;
+        use tokenizers::normalizers::bert::BertNormalizer;
+        use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
+        use tokenizers::decoders::wordpiece::WordPiece as WordPieceDecoder;
+
+        let vocab_str = vocab_path.to_str()
+            .ok_or_else(|| anyhow::anyhow!("invalid vocab path"))?;
+
+        let wordpiece = WordPiece::from_file(vocab_str)
+            .build()
+            .map_err(|e| anyhow::anyhow!("wordpiece build: {e}"))?;
+
+        let mut inner = tokenizers::Tokenizer::new(wordpiece);
+        inner.with_normalizer(Some(BertNormalizer::default()));
+        inner.with_pre_tokenizer(Some(BertPreTokenizer));
+        inner.with_decoder(Some(WordPieceDecoder::default()));
+
         Ok(Self { inner })
     }
 }
