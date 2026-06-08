@@ -20,12 +20,12 @@ pub async fn run_repl(engine: &mut dyn Engine, mut viz: VizRepl) -> anyhow::Resu
             ["index", rest] => {
                 let log = engine.index(next_doc_id, rest).await?;
                 next_doc_id += 1;
-                render_log(&log);
+                render_log(&log).await;
             }
             ["query", rest] => {
                 let (results, log) = engine.query(rest, 10).await?;
                 render_results(&results);
-                render_log(&log);
+                render_log(&log).await;
             }
             ["inspect"] => {
                 let out = engine.inspect(None).await?;
@@ -49,13 +49,12 @@ pub async fn run_repl(engine: &mut dyn Engine, mut viz: VizRepl) -> anyhow::Resu
     Ok(())
 }
 
-pub fn render_log(log: &TraceLog) {
+pub async fn render_log(log: &TraceLog) {
     if log.events.is_empty() {
         return;
     }
-    if let Ok(json) = serde_json::to_string_pretty(&log) {
-        println!("\x1b[2m[trace]\x1b[0m {}", json);
-    }
+    let delay = common::viz_delay_ms();
+    common::render_trace(log, delay).await;
 }
 
 pub fn render_results(results: &[(u32, f32)]) {

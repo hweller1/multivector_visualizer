@@ -7,6 +7,14 @@ use std::path::PathBuf;
 use tachiom::TachiomEngine;
 use warp::WarpEngine;
 
+async fn render_log_visual(log: &common::TraceLog) {
+    if log.events.is_empty() {
+        return;
+    }
+    let delay = common::viz_delay_ms();
+    common::render_trace(log, delay).await;
+}
+
 fn vocab_path() -> PathBuf {
     std::env::var("MULTIVECTOR_VOCAB")
         .map(PathBuf::from)
@@ -73,7 +81,13 @@ async fn run_with_engine<E: Engine>(runner: &ScenarioRunner, engine: &mut E) -> 
             async move {
                 // Safety: single-threaded demo; engine outlives all futures.
                 let e = unsafe { &mut *engine_ptr };
-                dispatch_op(e, &op, args).await
+                dispatch_op(e, &op, args).await?;
+                // Post-step pause: give time to read the narration
+                let pause_ms = common::viz_delay_ms() * 3;
+                if pause_ms > 0 {
+                    tokio::time::sleep(std::time::Duration::from_millis(pause_ms)).await;
+                }
+                Ok(())
             }
         })
         .await
@@ -90,6 +104,7 @@ async fn dispatch_op<E: Engine>(engine: &mut E, op: &str, args: Vec<String>) -> 
                 for (doc_id, text) in common::SHARED_CORPUS {
                     let log = engine.index(*doc_id, text).await?;
                     println!("  indexed doc {doc_id} ({} trace events)", log.events.len());
+                    render_log_visual(&log).await;
                 }
             } else {
                 let doc_id: u32 = arg
@@ -108,15 +123,17 @@ async fn dispatch_op<E: Engine>(engine: &mut E, op: &str, args: Vec<String>) -> 
                 if !log.events.is_empty() {
                     println!("  indexed doc {doc_id} ({} trace events)", log.events.len());
                 }
+                render_log_visual(&log).await;
             }
         }
         "query" => {
             let text = args.join(" ");
-            let (results, _log) = engine.query(&text, 10).await?;
+            let (results, log) = engine.query(&text, 10).await?;
             println!("  query: {text}");
             for (i, (doc_id, score)) in results.iter().enumerate() {
                 println!("    {}. doc_id={doc_id}  score={score:.4}", i + 1);
             }
+            render_log_visual(&log).await;
         }
         "inspect" => {
             let target = args.first().map(|s| s.as_str());
