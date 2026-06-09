@@ -190,33 +190,34 @@ Recall@10 vs candidate fraction — measured on structured synthetic corpus (128
 | Engine | 1% | 5% | 10% | 20% | 50% |
 |---|---|---|---|---|---|
 | Random (lower bound) | 0.010 | 0.048 | 0.078 | 0.223 | 0.512 |
-| HNSW — sentence avg | 0.135 | 0.623 | 0.875 | 0.953 | 0.953 |
+| HNSW — sentence avg | 0.148 | 0.635 | 0.880 | 0.960 | 0.960 |
 | PLAID — global k-means | — | — | **1.000** | 1.000 | 1.000 |
 | WARP — Xtr threshold | 0.305 | 0.950 | 1.000 | 1.000 | 1.000 |
 | TACHIOM — per-type budgets | — | — | **1.000** | 1.000 | 1.000 |
 
-**N = 10K** — HNSW recall ceiling visible
+**N = 10K**
 
 | Engine | 1% | 5% | 10% | 20% | 50% |
 |---|---|---|---|---|---|
 | Random (lower bound) | 0.008 | 0.048 | 0.104 | 0.200 | 0.516 |
-| **HNSW — sentence avg ⚠️ ceiling** | 0.252 | **0.572** | **0.572** | **0.572** | **0.572** |
+| HNSW — sentence avg | 0.220 | 0.548 | 0.796 | 0.896 | 0.920 |
 | PLAID — global k-means | — | — | 0.968 | 1.000 | 1.000 |
 | WARP — Xtr threshold | **0.884** | **1.000** | 1.000 | 1.000 | 1.000 |
 | TACHIOM — per-type budgets | — | — | 0.980 | 1.000 | 1.000 |
 
-**N = 100K**
+**N = 100K** — HNSW sentence-avg ceiling visible
 
 | Engine | 1% | 5% | 10% | 20% | 50% |
 |---|---|---|---|---|---|
 | Random (lower bound) | 0.007 | 0.053 | 0.093 | 0.267 | 0.520 |
+| **HNSW — sentence avg ⚠️ ceiling** | 0.200 | **0.747** | **0.747** | **0.747** | **0.747** |
 | PLAID — global k-means | — | 0.833 | 0.833 | 1.000 | 1.000 |
 | **WARP — Xtr threshold** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
 | TACHIOM — per-type budgets | — | 0.740 | 0.740 | 1.000 | 1.000 |
 
 `—` = fewer candidates than the engine's minimum probe depth at this N.
 
-**HNSW recall ceiling (N=10K):** HNSW plateaus at 0.572 regardless of ef — even scoring 50% of the corpus gives the same recall as scoring 5%. This is because averaging token embeddings into a single sentence vector loses the per-token interactions that MaxSim uses. A sentence with "bank" (river context) and a sentence with "bank" (financial context) may score similarly at the sentence level, but ColBERT's MaxSim correctly discriminates them through the other token matches.
+**HNSW ceiling at N=100K:** At large scale, HNSW plateaus at 0.747 Recall@10 regardless of numCandidates — even scoring 50% of the corpus gives the same recall as scoring 5%. This is because the oracle is ColBERT per-token MaxSim over random-projection embeddings; averaging those per-token vectors into a sentence vector loses the token-level discrimination. At N=10K, increasing numCandidates still helps (0.548 → 0.920 from 5% to 50%), but the ceiling effect becomes more pronounced at larger scale. With real learned embeddings (Voyage-4-large), HNSW reaches 94%+ — see the `gt-bench` section below.
 
 ### Plots
 

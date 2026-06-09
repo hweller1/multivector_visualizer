@@ -159,15 +159,16 @@ Speedup over ColBERT full scan
 <circle cx="116" cy="266" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="85" cy="162" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="64" cy="58" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="400,420 378,401 347,369 325,338 273,209 220,109 167,74 114,74 "/>
-<circle cx="400" cy="420" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="400,422 378,401 347,373 325,348 273,214 220,109 167,75 114,75 68,75 "/>
+<circle cx="400" cy="422" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <circle cx="378" cy="401" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="347" cy="369" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="325" cy="338" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="273" cy="209" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="347" cy="373" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="325" cy="348" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="273" cy="214" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <circle cx="220" cy="109" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="167" cy="74" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="114" cy="74" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="167" cy="75" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="114" cy="75" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="68" cy="75" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="186,58 186,58 156,58 137,58 112,58 88,58 66,58 "/>
 <circle cx="186" cy="58" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
 <circle cx="186" cy="58" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
@@ -384,15 +385,18 @@ Speedup over ColBERT full scan
 <circle cx="522" cy="265" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="488" cy="149" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="464" cy="58" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="877,458 877,456 877,451 877,443 877,414 834,380 775,345 716,250 "/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="877,458 877,456 877,450 877,441 877,415 834,391 775,350 716,251 659,145 600,103 522,92 "/>
 <circle cx="877" cy="458" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <circle cx="877" cy="456" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="877" cy="451" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="877" cy="443" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="877" cy="414" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="834" cy="380" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="775" cy="345" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="716" cy="250" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="877" cy="450" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="877" cy="441" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="877" cy="415" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="834" cy="391" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="775" cy="350" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="716" cy="251" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="659" cy="145" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="600" cy="103" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="522" cy="92" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="604,72 601,58 600,58 600,58 600,58 568,58 506,58 487,58 464,58 "/>
 <circle cx="604" cy="72" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
 <circle cx="601" cy="58" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
@@ -611,15 +615,18 @@ Speedup over ColBERT full scan
 <circle cx="965" cy="263" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="931" cy="161" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="907" cy="58" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="1320,483 1320,483 1320,480 1320,480 1320,474 1320,457 1320,440 1320,417 "/>
-<circle cx="1320" cy="483" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="1320" cy="483" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="1320,480 1320,480 1320,480 1320,480 1320,474 1320,471 1320,451 1320,437 1298,400 1239,354 1161,166 "/>
+<circle cx="1320" cy="480" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="480" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <circle cx="1320" cy="480" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <circle cx="1320" cy="480" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <circle cx="1320" cy="474" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="1320" cy="457" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="1320" cy="440" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="1320" cy="417" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="471" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="451" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="437" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1298" cy="400" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1239" cy="354" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1161" cy="166" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="1068,129 1052,70 1047,64 1044,61 1043,58 1043,58 1043,58 1043,58 907,58 "/>
 <circle cx="1068" cy="129" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
 <circle cx="1052" cy="70" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>

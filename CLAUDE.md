@@ -46,17 +46,20 @@ The ColBERT/PLAID/WARP/TACHIOM engines use `RandomProjection`: a **deterministic
 
 ## Benchmark notes
 
-**tradeoff benchmark** (synthetic, N=1K/10K/100K):
-- HNSW recall ceiling at N=10K: ~0.572 regardless of ef — proves sentence-avg loses MaxSim per-token interactions
+**tradeoff benchmark** (synthetic, N=1K/10K/100K, oracle = ColBERT full scan on random projections):
+- HNSW ceiling at N=100K: ~0.747 regardless of numCandidates — sentence-avg loses per-token MaxSim signal
+- HNSW at N=10K: gradual curve, reaches 0.920 at 50% candidates (ceiling less severe at smaller scale)
 - WARP: 1.000 Recall@10 at 100× speedup (exact Xtr threshold)
 - PLAID: ~0.833 ceiling at 5% candidates (centroid approximation error)
+- ef_vals for HNSW sweep extend to 5000 (50% of 10K, ~5% of 100K) to prove plateau
 
 **gt-bench** (real text, N=100):
 - With `ANTHROPIC_API_KEY`: calls `claude-haiku-4-5-20251001` to judge all 100 docs per query
 - Without key: falls back to category-membership heuristic (20 river, 20 finance, etc.)
 - Results cached in `cache/llm_gt.json` and `cache/gt_voyage_*.json`
-- HNSW with Voyage: 0.940 Recall@10 at 10% candidates (heuristic GT)
-- ColBERT full scan: 0.700 (lexical mismatch vs topic GT)
+- HNSW with Voyage: ~0.94 Recall@10 at 10% candidates (heuristic GT); higher with LLM GT
+- ColBERT full scan: ~0.70 (lexical mismatch vs topic GT)
+- HNSW ef sweep: always returns K_EVAL=10 results, varies ef as numCandidates; frac = ef/n
 
 ## Noise calibration for synthetic data
 

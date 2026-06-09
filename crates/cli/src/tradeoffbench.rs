@@ -483,7 +483,9 @@ fn bench_at_n(n_docs: usize, rng: &mut SmallRng) -> Vec<Curve> {
         hnsw_idx.insert((sv.as_slice(), i));
     }
 
-    let ef_vals: Vec<usize> = [4usize, 8, 12, 16, 24, 32, 64, 128, 256, 512]
+    // Sweep to ~50% of corpus to prove the plateau is flat (not a numCandidates issue).
+    let ef_vals: Vec<usize> = [4usize, 8, 12, 16, 24, 32, 64, 128, 256, 512,
+                                1000, 2000, 5000]
         .iter().copied().filter(|&ef| ef <= n_docs && ef >= K_EVAL).collect();
     let mut hnsw_pts = vec![];
     for ef in ef_vals {

@@ -416,20 +416,22 @@ fn bench_hnsw(
     }
     let idx_to_id: Vec<u32> = doc_embs.iter().map(|(id, _)| *id).collect();
 
-    let ef_vals: Vec<usize> = [5usize, 10, 15, 20, 30, 50, 75, 100]
+    // ef_arg controls exploration depth (≈ numCandidates in Atlas).
+    // Always return exactly K_EVAL results so recall is measured fairly at each ef.
+    let ef_vals: Vec<usize> = [10usize, 20, 30, 50, 75, 100, 150, 200]
         .iter().copied().filter(|&ef| ef <= n).collect();
 
     let mut pts = vec![];
     for ef in ef_vals {
         let (mut tot_f, mut tot_r) = (0.0f64, 0.0f64);
         for (qe, gt_set) in query_embs.iter().zip(gt) {
-            let results = hnsw.search(qe.as_slice(), ef, ef);
+            let results = hnsw.search(qe.as_slice(), K_EVAL, ef);
             // DistCosine returns 1 - cosine_similarity, so higher cosine = lower distance.
             let mut scored: Vec<(u32, f32)> = results.iter()
                 .map(|r| (idx_to_id[r.d_id], 1.0_f32 - r.distance))
                 .collect();
             scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-            tot_f += scored.len() as f64 / n as f64;
+            tot_f += ef as f64 / n as f64;
             tot_r += recall_at_k(&scored, gt_set, K_EVAL);
         }
         let nq = query_embs.len() as f64;
