@@ -101,7 +101,7 @@ impl AtlasClient {
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let resp = self
             .http
-            .post("https://api.voyageai.com/v1/embeddings")
+            .post("https://ai.mongodb.com/v1/embeddings")
             .bearer_auth(&self.voyage_api_key)
             .json(&serde_json::json!({
                 "model": "voyage-4-large",

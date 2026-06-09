@@ -1,38 +1,125 @@
 [meta]
-title = "HNSW: Single-Vector Baseline with Atlas"
-engine = "hnsw"
-description = "Voyage-4-large sentence embeddings indexed in Atlas Vector Search HNSW"
+title   = "HNSW: The Single-Vector Baseline"
+engine  = "hnsw"
 version = 1
+description = """
+Step 1 of 5. We start with HNSW — the standard approach used in most production vector
+search systems today. Every document becomes exactly ONE vector in a high-dimensional space
+(here: 1024 dimensions from Voyage-4-large embeddings). HNSW builds a layered proximity
+graph over these vectors so queries can descend quickly to the nearest neighbors.
+
+The key question we will explore: what happens when a word like "bank" means both
+a river bank AND a financial institution? A single vector has to pick ONE place.
+"""
 
 [corpus]
 type = "shared"
 
-[[steps]]
-op = "index"
-args = ["0"]
-narration = "Index doc 0 into HNSW. Each doc becomes a single 1536-dim vector — the full sentence collapsed to one point. Word-sense ambiguity ('bank': river vs. financial) is averaged away."
+# ── Step 1: Build the index ────────────────────────────────────────────────────
 
 [[steps]]
-op = "inspect"
-args = ["layers"]
-narration = "HNSW layer structure: long-range navigation edges at high layers, precise neighbors at layer 0."
+op        = "index"
+args      = ["all"]
+narration = """
+INDEXING — collapsing meaning into single points
+
+For each document, Voyage-4-large embeds the full sentence into a 1024-dim vector,
+then HNSW inserts that vector into a layered proximity graph.
+
+Nodes marked with ★ were probabilistically promoted to higher layers (25% chance
+with M=4). These become "highway" entry points — queries start at the top layer,
+hop quickly to the right neighborhood, then descend for fine-grained matching.
+
+Notice: doc 0 ("The river bank was slippery...") and doc 1 ("She opened a savings
+account at the bank...") both contain "bank". Their full-sentence embeddings land
+at DIFFERENT positions in space — but how far apart are they?
+"""
+
+# ── Step 2: Inspect the graph structure ───────────────────────────────────────
 
 [[steps]]
-op = "query"
-args = ["river erosion along the bank", "5"]
-narration = "Query: 'river bank'. Greedy ANN walk through HNSW graph layers. Single-vector cosine scores."
+op        = "inspect"
+args      = ["layers"]
+narration = """
+GRAPH STRUCTURE after indexing 20 docs
+
+  Layer 0  (bottom)  Every node is here. Dense connections for fine-grained search.
+                     Final top-k selection happens at this layer.
+  Layer 1+ (upper)   ~25% of nodes promoted here. Sparse, long-range shortcuts.
+                     Allow the search to jump quickly to the right region before
+                     descending to layer 0 for precise ranking.
+
+M=4  → each node has at most 4 neighbors per layer
+ef_construction=64  → 64 candidates explored per insertion to pick best 4 neighbors
+"""
+
+# ── Step 3: Run the "river bank" query ────────────────────────────────────────
 
 [[steps]]
-op = "query"
-args = ["open a checking account at the bank", "5"]
-narration = "Query: 'financial bank'. Same bank — does the single vector distinguish financial from river context?"
+op        = "query"
+args      = ["river erosion along the bank", "5"]
+narration = """
+QUERY 1 — "river erosion along the bank"
+
+Ground truth: RELEVANT = docs about rivers, streams, waterways (0, 5, 14, 13, 18)
+              IRRELEVANT = docs about financial institutions (1, 6, 15, 19)
+
+HNSW embeds the query into the same 1024-dim space and walks the graph greedily.
+Watch the layer descent above — each layer narrows the search to a tighter region.
+
+Check the checkmarks (✓/✗) in the results. With strong embeddings the context
+around "erosion" pulls the query toward river-bank documents. But see how close
+the scores are — financial-bank documents can still appear in the top-5 because
+both meanings share the same surface form "bank" and both sentences have similar
+grammatical structure ("...the bank...").
+"""
+pause = true
+
+# ── Step 4: Run the "financial bank" query ────────────────────────────────────
 
 [[steps]]
-op = "inspect"
-args = ["graph"]
-narration = "Average degree, ef_construction setting, graph density."
+op        = "query"
+args      = ["open a checking account at the bank", "5"]
+narration = """
+QUERY 2 — "open a checking account at the bank"
+
+Ground truth: RELEVANT = docs about financial institutions (1, 6, 15, 19, 12)
+              IRRELEVANT = docs about river banks (0, 5, 14)
+
+Now "bank" appears in a financial context. The phrase "checking account" should
+pull the query embedding toward the financial cluster. Check how well it separates.
+
+SINGLE-VECTOR LIMITATION — both meanings of "bank" share a centroid.
+The embedding model learns one vector per sentence. No matter how good the model,
+"river bank" and "financial bank" occupy OVERLAPPING regions of the embedding space,
+and queries near the boundary will retrieve documents from both meanings.
+
+ColBERT (next demo) sidesteps this entirely: each TOKEN gets its own embedding,
+scored independently. The query token "account" will fire on doc-1's "account"
+token with near-perfect similarity — with zero competition from "river bank" docs
+that have no "account" token at all.
+"""
+pause = true
+
+# ── Step 5: Show graph statistics ─────────────────────────────────────────────
 
 [[steps]]
-op = "trace"
-args = ["hnsw"]
-narration = "HnswInsert and HnswQuery trace events — see how layer traversal and edge additions are logged."
+op        = "inspect"
+args      = ["graph"]
+narration = """
+HNSW SUMMARY
+
+  ef_construction = 64   64 candidates explored per insertion to choose neighbors
+  M = 4                  At most 4 edges per node per layer
+  P(promoted) ≈ 25%      About 5 of our 20 docs appear on layer 1+
+
+STRENGTHS                       LIMITATIONS
+  O(log N) approximate search     One vector per document
+  Tunable recall vs. speed        Meaning fixed at index time
+  Works with any embedding model  Token-level disambiguation impossible
+  Low query latency               "bank" ambiguity requires perfect embeddings
+
+→ Next: cargo demo colbert
+  ColBERT keeps a MATRIX of vectors per document — one per token.
+  Queries score each token independently (MaxSim), not the whole sentence at once.
+"""

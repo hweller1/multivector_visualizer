@@ -2,8 +2,9 @@ use super::index::PlaidIndex;
 use anyhow::Result;
 use async_trait::async_trait;
 use colbert::{index::ColBertIndex, ColBertEngine};
-use common::{Engine, TraceLog};
+use common::{Engine, OpTiming, TraceLog};
 use std::path::Path;
+use std::time::Instant;
 
 pub struct PlaidEngine {
     pub colbert_engine: ColBertEngine,
@@ -46,15 +47,34 @@ impl Engine for PlaidEngine {
     }
 
     async fn query(&self, text: &str, top_k: usize) -> Result<(Vec<(u32, f32)>, TraceLog)> {
+        let t = Instant::now();
         let (query_matrix, _vocab_ids) = self.colbert_engine.encoder.borrow_mut().encode(text)?;
+        let total_docs = self.colbert_engine.index.docs.len();
         if let Some(plaid) = &self.plaid_index {
             let nprobe = (self.num_centroids / 2).max(1);
-            Ok(plaid.search(&query_matrix, top_k, nprobe))
+            let (results, mut log) = plaid.search(&query_matrix, top_k, nprobe);
+            // docs_scored = candidate count from CandidateExpand event
+            let docs_scored = log.events.iter().find_map(|(_, e)| {
+                if let common::TraceEvent::CandidateExpand { candidate_doc_ids, .. } = e {
+                    Some(candidate_doc_ids.len())
+                } else { None }
+            }).unwrap_or(total_docs);
+            log.timing = Some(OpTiming {
+                embed_ms: None,
+                search_ms: Some(t.elapsed().as_secs_f64() * 1000.0),
+                docs_scored: Some(docs_scored),
+            });
+            Ok((results, log))
         } else {
-            let (results, log) = self
+            let (results, mut log) = self
                 .colbert_engine
                 .index
                 .search_with_trace(&query_matrix, top_k);
+            log.timing = Some(OpTiming {
+                embed_ms: None,
+                search_ms: Some(t.elapsed().as_secs_f64() * 1000.0),
+                docs_scored: Some(total_docs),
+            });
             Ok((results, log))
         }
     }

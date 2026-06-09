@@ -1,33 +1,122 @@
 [meta]
-title = "WARP: Xtr Gather then MaxSim Refine"
-engine = "warp"
-description = "WARP replaces centroid ANN with Xtr token-level relevance scores for candidate gathering"
+title   = "WARP: Xtr Relevance Gather then MaxSim Refine"
+engine  = "warp"
 version = 1
+description = """
+Step 4 of 5. PLAID uses centroid ANN for candidate pruning: each token is hard-assigned
+to exactly one centroid bucket. If a token sits near a centroid boundary, it can be
+routed to the wrong bucket and miss relevant docs.
+
+WARP replaces centroid ANN with Xtr (eXact Token Retrieval) scores. During indexing,
+for each (token_type, doc) pair, WARP precomputes and stores the MAXIMUM dot product
+that query-token "bank" can ever get from any "bank" token in that doc. At query time,
+these stored scores are thresholded to form the candidate set — no hard centroid buckets.
+
+Result: softer, more accurate candidate selection, with tunable threshold t_prime.
+"""
 
 [corpus]
 type = "shared"
 
 [[steps]]
-op = "index"
-args = ["all"]
-narration = "Indexing all docs. WARP builds both a ColBERT inverted token store and an Xtr registry mapping token types to their per-doc max dot products."
+op        = "index"
+args      = ["all"]
+narration = """
+INDEXING all 20 docs with WARP
+
+For each token in each document, WARP builds TWO data structures:
+
+  1. Token store (same as ColBERT): full 128-dim vectors for MaxSim refinement
+  2. Xtr registry: for each (token_type_id, doc_id), store the MAX dot product
+     that any query embedding of that token type can produce against this doc
+
+The Xtr registry is compact: one scalar per (token_type, doc) pair.
+At query time, looking up "what docs are most relevant to query-token 'bank'?"
+is a simple table lookup + threshold, not an ANN search over centroids.
+
+Watch the index events — you will see both the token embeddings being stored
+and the Xtr max-dot-product values being registered.
+"""
 
 [[steps]]
-op = "inspect"
-args = ["gather"]
-narration = "Inspect gather statistics — see the fraction of docs promoted to the MaxSim refinement stage."
+op        = "inspect"
+args      = ["gather"]
+narration = """
+XTR GATHER STATISTICS (before any query)
+
+The Xtr registry maps: token_type_id → [(doc_id, max_dot_product)]
+Each entry answers: "if a query has token type X, how relevant is doc Y?"
+
+At query time:
+  For each query token, look up its type in the Xtr registry
+  Keep all docs where max_dot_product ≥ t_prime (threshold)
+  → candidate set for MaxSim refinement
+
+The fraction of docs promoted depends on t_prime. A tighter threshold = fewer
+candidates = faster but potentially missed docs. WARP's design is to set t_prime
+such that recall stays above 95% while pruning 95%+ of documents.
+"""
 
 [[steps]]
-op = "query"
-args = ["bank interest rate", "5"]
-narration = "Query: 'bank interest rate'. WARP gathers candidates via Xtr token scores (not centroid ANN), then refines with full MaxSim."
+op        = "query"
+args      = ["bank interest rate", "5"]
+narration = """
+QUERY 1 — "bank interest rate"   (financial context)
+
+WARP pipeline:
+  1. Tokenize query: ["bank", "interest", "rate"]
+  2. Xtr gather: for each query token, look up Xtr scores, threshold at t_prime
+     → candidate docs where at least one token type exceeds t_prime
+  3. MaxSim refine: full MaxSim scoring on candidates only → ranked results
+
+Watch the XtrScore boxes: for each query token, WARP shows the per-doc relevance
+scores from the Xtr registry. Docs below t_prime are pruned WITHOUT any matrix math.
+
+Then watch CandidateGather: what fraction of docs survived?
+
+Ground truth: docs 6, 19, 15, 1, 12 (financial) are RELEVANT.
+"""
+pause = true
 
 [[steps]]
-op = "trace"
-args = ["xtr"]
-narration = "Trace the XtrScore event for each query token — see the per-doc relevance scores before the t_prime threshold cut."
+op        = "trace"
+args      = ["xtr"]
+narration = """
+XTR TRACE — per-query-token relevance scores
+
+For each query token, you see a sorted list: (doc_id, xtr_score).
+The XtrScore is the stored maximum dot product from indexing time.
+
+Notice:
+  - Query-token "bank" has different scores for river-bank docs vs financial-bank docs
+    (even though same surface form — different contextual embedding geometry)
+  - Query-token "interest" fires strongly only on financial docs
+  - The threshold t_prime cuts off the low scorers
+
+This is the key advantage over PLAID: no hard centroid boundary. A doc that sits
+at the edge of a PLAID centroid boundary might be pruned. In WARP, it is kept if
+its Xtr score exceeds t_prime, regardless of which centroid it is nearest to.
+"""
 
 [[steps]]
-op = "inspect"
-args = ["gather"]
-narration = "After querying: what fraction of docs were promoted? Was the Xtr threshold effective at pruning?"
+op        = "inspect"
+args      = ["gather"]
+narration = """
+WARP SUMMARY
+
+IMPROVEMENT OVER PLAID
+  PLAID: hard centroid assignment (each token → exactly 1 bucket)
+  WARP:  Xtr soft threshold (docs scored directly, no centroid boundary)
+
+STRENGTHS
+  ✓ Higher recall at same pruning level vs PLAID (no hard-assignment artifacts)
+  ✓ t_prime is tunable: tighter = fewer candidates = faster
+  ✓ Xtr lookup is O(1) per (token_type, doc) pair — extremely fast gather phase
+
+SCALING CHALLENGE ADDRESSED BY TACHIOM (next)
+  WARP stores one Xtr entry per (token_type, doc) pair. At 1M docs × 10K token
+  types = 10B entries. TACHIOM replaces this flat registry with per-token-type
+  centroid sets (TAC) that scale to 4M+ centroids with a fixed memory budget.
+
+Run: cargo demo tachiom
+"""

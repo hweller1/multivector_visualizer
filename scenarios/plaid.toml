@@ -1,33 +1,119 @@
 [meta]
-title = "PLAID: Centroid Pruning over ColBERT"
-engine = "plaid"
-description = "Shows how PLAID adds centroid-based candidate pruning to ColBERT's late interaction"
+title   = "PLAID: Centroid Pruning over ColBERT"
+engine  = "plaid"
 version = 1
+description = """
+Step 3 of 5. ColBERT is accurate but slow: it scores every document with MaxSim.
+
+PLAID adds a pre-filter using centroid ANN (Approximate Nearest Neighbors on centroids).
+The idea: k-means cluster all token embeddings in the index into K centroids. At query
+time, find the nearest centroids for each query token, then only score docs whose tokens
+belong to those centroids. This cuts the MaxSim workload from N documents to ~1-5% of N.
+
+The inverted index: centroid_id → [doc_ids that have a token assigned to this centroid].
+"""
 
 [corpus]
 type = "shared"
 
 [[steps]]
-op = "index"
-args = ["all"]
-narration = "Indexing all 20 docs into PLAID. Each token is assigned to its nearest centroid — building an inverted index from centroid → doc list for fast candidate selection."
+op        = "index"
+args      = ["all"]
+narration = """
+INDEXING all 20 docs with PLAID
+
+For each token in each document:
+  1. Compute the 128-dim embedding (same as ColBERT)
+  2. Find the nearest centroid via ANN search over K cluster centers
+  3. Record: centroid_id → doc_id in the inverted index
+
+After indexing, PLAID holds:
+  - Same token matrices as ColBERT (for final MaxSim scoring)
+  - An inverted index: centroid → list of docs that contain a token near that centroid
+
+Watch the CentroidAssign events: each token is routed to exactly one centroid bucket.
+Tokens with similar meaning end up in the same bucket — "bank" (financial) and
+"interest" cluster together, away from "bank" (river) and "erosion".
+"""
 
 [[steps]]
-op = "inspect"
-args = ["centroids"]
-narration = "Inspect centroid structure: how many centroids, how many docs per cluster."
+op        = "inspect"
+args      = ["centroids"]
+narration = """
+CENTROID STRUCTURE
+
+Each centroid represents a "cluster of similar token embeddings".
+The inverted index maps centroid_id → docs that have at least one token assigned here.
+
+For our 20-doc corpus: financial-context tokens cluster around different centroids
+than river-context tokens. When a query arrives with "bank interest rate", it will
+activate the financial centroids — and the river-bank docs will not appear in those
+centroid buckets, so they are pruned BEFORE MaxSim even runs.
+
+Key metric: how many docs survive pruning per query? In this tiny demo it may be most
+docs (small corpus = dense clusters). At 1M docs, expect ~1-5% to survive per query.
+"""
 
 [[steps]]
-op = "query"
-args = ["bank interest rate", "5"]
-narration = "Query: 'bank interest rate'. PLAID first looks up matching centroids, then runs MaxSim only on the candidate docs from those centroids — far fewer than all 20."
+op        = "query"
+args      = ["bank interest rate", "5"]
+narration = """
+QUERY 1 — "bank interest rate"   (financial context)
+
+PLAID pipeline:
+  1. Tokenize query: ["bank", "interest", "rate"]
+  2. CentroidANN: for each query token, find nearest K centroids
+  3. CandidateExpand: union of all docs in those centroid buckets → candidate set
+  4. MaxSim ONLY on candidates → ranked results
+
+Watch the CentroidANN boxes: which centroids does "bank" activate?
+Watch the CandidateExpand box: how many docs were pruned vs. kept?
+
+Ground truth: docs 6, 19, 15, 1, 12 (financial) are RELEVANT.
+Financial-context docs should fall into the centroids activated by "bank interest rate".
+River-bank docs should be pruned because they belong to different centroid buckets.
+"""
+pause = true
 
 [[steps]]
-op = "query"
-args = ["river bank hiking", "5"]
-narration = "Query: 'river bank hiking'. Watch which docs get skipped entirely because their centroid didn't match any query token's top-nprobe centroids."
+op        = "query"
+args      = ["river bank hiking", "5"]
+narration = """
+QUERY 2 — "river bank hiking"   (outdoor/waterway context)
+
+Same pipeline, different query tokens. Now "bank" activates the RIVER-context centroids
+instead of the financial ones.
+
+Watch: which docs survive the centroid filter this time?
+The financial-bank docs (1, 6, 15, 19) should now be pruned — they cluster around
+different centroids than "river" and "hiking" tokens.
+
+Ground truth: docs 0, 5, 14, 13, 18 (river/outdoor) are RELEVANT.
+
+Compare the pruned count between this query and the previous one. PLAID automatically
+routes each query to the right semantic region without any explicit category labels.
+"""
+pause = true
 
 [[steps]]
-op = "inspect"
-args = ["centroids"]
-narration = "Which centroids were activated in the last query? See how centroid pruning reduces the MaxSim computation."
+op        = "inspect"
+args      = ["centroids"]
+narration = """
+PLAID SUMMARY
+
+IMPROVEMENT OVER COLBERT
+  ColBERT: scored ALL documents with MaxSim every query
+  PLAID:   centroid ANN prunes to ~1-5% candidates → MaxSim only on survivors
+
+STRENGTHS
+  ✓ Same final quality as ColBERT (pruned docs were far from query anyway)
+  ✓ Orders-of-magnitude fewer MaxSim operations at scale
+  ✓ Centroid ANN is fast: K<<N, so lookup cost is negligible
+
+LIMITATION ADDRESSED BY WARP (next)
+  The centroid assignment is a HARD decision: each token → exactly 1 centroid.
+  If a token is near a centroid boundary, it may be assigned to the wrong bucket.
+  WARP replaces centroid ANN with Xtr soft relevance scores that avoid hard cutoffs.
+
+Run: cargo demo warp
+"""

@@ -3,9 +3,10 @@ use super::xtr::XtrScorer;
 use anyhow::Result;
 use async_trait::async_trait;
 use colbert::{encoder::ColBertEncoder, index::ColBertIndex};
-use common::{Engine, TraceEvent, TraceLog};
+use common::{Engine, OpTiming, TraceEvent, TraceLog};
 use std::cell::RefCell;
 use std::path::Path;
+use std::time::Instant;
 
 pub struct WarpEngine {
     pub colbert_encoder: RefCell<ColBertEncoder>,
@@ -58,6 +59,7 @@ impl Engine for WarpEngine {
     }
 
     async fn query(&self, text: &str, top_k: usize) -> Result<(Vec<(u32, f32)>, TraceLog)> {
+        let t = Instant::now();
         let (query_matrix, _vocab_ids) = self.colbert_encoder.borrow_mut().encode(text)?;
         let total_docs = self.colbert_index.docs.len();
 
@@ -102,6 +104,12 @@ impl Engine for WarpEngine {
         });
 
         scores.truncate(top_k);
+        let docs_scored = if candidates.is_empty() { total_docs } else { candidates.len() };
+        log.timing = Some(OpTiming {
+            embed_ms: None,
+            search_ms: Some(t.elapsed().as_secs_f64() * 1000.0),
+            docs_scored: Some(docs_scored),
+        });
         Ok((scores, log))
     }
 

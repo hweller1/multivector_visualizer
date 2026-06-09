@@ -44,6 +44,7 @@ impl ColBertIndex {
             let (score, matrix, row_maxima) = maxsim_with_matrix(query_matrix, doc_matrix);
             log.push(TraceEvent::MaxSimMatrix {
                 query_tokens: query_matrix.tokens.clone(),
+                doc_tokens: doc_matrix.tokens.clone(),
                 doc_id: *doc_id,
                 matrix,
                 row_maxima,

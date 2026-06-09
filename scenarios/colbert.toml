@@ -1,88 +1,121 @@
 # scenarios/colbert.toml — ColBERT scenario
 
 [meta]
-title       = "ColBERTv2 Late Interaction: Per-Token Embeddings and MaxSim"
-engine      = "colbert"
+title   = "ColBERT: Per-Token Embeddings and MaxSim"
+engine  = "colbert"
+version = 1
 description = """
-Walk through how ColBERT indexes a document token by token, then scores
-a query using the MaxSim function. Contrast with HNSW's single-vector approach.
-"""
-version     = 1
+Step 2 of 5. ColBERT fixes HNSW's single-vector limitation by storing a MATRIX of
+embeddings per document — one 128-dim vector per token, not one 1024-dim vector per
+sentence.
 
-# Use the shared 20-sentence corpus — no inline docs needed.
+Scoring via MaxSim: for each query token, find the HIGHEST cosine similarity across
+all doc tokens, then sum the row-maxima. This means query-token "account" only gets
+credit from doc tokens that are contextually similar to "account" — it cannot
+accidentally score against river-bank docs that contain no such token.
+
+The cost: we still score EVERY document. That is what PLAID fixes next.
+"""
+
 [corpus]
 type = "shared"
 
-# Each step maps to one REPL command.
-# op must be one of: "index", "query", "inspect", "trace"
-# args is a list of strings passed to the command.
-
 [[steps]]
 op        = "index"
-args      = ["0"]
+args      = ["all"]
 narration = """
-HNSW stores one vector per document. When the document says 'The river bank
-was slippery', HNSW produces a single point in embedding space — the token
-'bank' and the token 'river' collapse into one average representation.
+INDEXING all 20 docs with ColBERT
 
-ColBERT keeps them separate. Watch what happens when we index document 0.
+HNSW stores ONE 1024-dim vector per document.
+ColBERT stores a MATRIX: [num_tokens × 128 dims] per document.
+
+Watch the tokenizer split each sentence. Every token gets its own 128-dim embedding
+shaped by the WordPiece context. Key contrast to watch:
+
+  doc 0  "The river bank was slippery after the spring flood receded."
+  doc 1  "She opened a savings account at the bank downtown."
+
+Both contain "bank". In HNSW they share a compressed region of embedding space.
+In ColBERT, doc-0's "bank" is geometrically shaped by "river"/"flood" neighbors,
+while doc-1's "bank" is shaped by "savings"/"account" — different 128-dim directions.
+That directional difference is what lets MaxSim correctly disambiguate.
 """
 
 [[steps]]
 op        = "inspect"
 args      = ["tokens", "0"]
 narration = """
-Each token gets its own 128-dimensional embedding. The token 'bank' (row 3)
-sits at a completely different position than 'river' (row 2). When a query
-asks about financial institutions, 'bank' will score high against the matching
-query token, while 'river' will score near zero. MaxSim picks the max — so
-the document still retrieves correctly even with one ambiguous token.
-"""
+TOKEN MATRIX for doc 0 — "The river bank was slippery after the spring flood receded."
 
-[[steps]]
-op        = "index"
-args      = ["1"]
-narration = """
-Now index document 1: 'She opened a savings account at the bank downtown.'
-This document's 'bank' token maps to the same vocab ID as document 0's 'bank' —
-so their 'bank' embeddings are identical (fixed projection is token-type-based).
-The rest of the tokens differ. MaxSim will separate them by query.
+Each row is one token's 128-dim embedding (first 3 dims previewed).
+The token "bank" sits in a river-context neighborhood: "river", "slippery", "flood".
+
+MaxSim: query-token "account" will fire weakly on this "bank" because they point
+in different directions in 128-dim space. Compare with doc 1's "bank" after querying.
 """
 
 [[steps]]
 op        = "query"
 args      = ["river erosion along the bank"]
 narration = """
-Query: 'river erosion along the bank'. The query is also tokenized into per-token
-embeddings. For each query token, MaxSim finds the document token with highest
-cosine similarity. The row maxima are summed to produce the final score.
+QUERY 1 — "river erosion along the bank"
 
-Watch the MaxSimMatrix: doc 0 (river bank) should outscore doc 1 (savings account)
-because query tokens like 'river' and 'erosion' find better matches in doc 0.
+Tokenized: ["river", "erosion", "along", "the", "bank"]
+Each query token gets a 128-dim embedding.
+
+MaxSim scoring for every indexed doc:
+  1. Build a matrix: query_tokens × doc_tokens (cosine similarity per cell)
+  2. For each query row: take the MAX across all doc columns
+  3. Sum the row-maxima → final score
+
+Watch the MaxSimMatrix: bright cells (▓ █) show where query tokens found their best
+doc-token matches. Query-token "river" lights up against doc 0 but not doc 1.
+
+Ground truth: docs 0, 5, 14, 13, 18 (river/waterway context) are RELEVANT.
 """
-pause     = true
+pause = true
 
 [[steps]]
 op        = "query"
 args      = ["open a checking account at the bank"]
 narration = """
-Now reverse the query: 'open a checking account at the bank'.
-Doc 1 should outscore doc 0 — even though both contain the token 'bank' —
-because query tokens 'account' and 'checking' find strong matches only in doc 1.
+QUERY 2 — "open a checking account at the bank"
 
-This is the core insight: MaxSim lets each query token find its BEST match
-independently. A single-vector model (HNSW) would mix these signals together.
+Query tokens: ["open", "a", "checking", "account", "at", "the", "bank"]
+
+Watch the MaxSimMatrix for doc 1 vs doc 0:
+  "checking" → fires on doc 1's "savings" token (both financial terms, similar geometry)
+  "account"  → fires on doc 1's "account" token with near-perfect similarity
+  "bank"     → fires on both docs, but doc 1's financial-context "bank" scores higher
+
+Result: doc 1 accumulates much higher row-maxima than doc 0.
+
+This is late interaction: we never decided which meaning of "bank" was being indexed.
+The query tokens provide the disambiguation signal at search time.
+
+Ground truth: docs 1, 6, 15, 19, 12 (financial context) are RELEVANT.
 """
-pause     = true
+pause = true
 
 [[steps]]
 op        = "trace"
 args      = []
 narration = """
-The TraceLog above shows every event fired during the last query. You can see
-the Tokenize event, then one TokenEmbed per token, then the MaxSimMatrix event
-with the full matrix. Each stage corresponds to a ColBERT pipeline step.
+COLBERT PIPELINE TRACE
 
-In the next demo (PLAID), we add a pruning step between tokenization and MaxSim.
+Events fired during the last query:
+  Tokenize      — sentence → WordPiece token list
+  TokenEmbed ×N — each token → 128-dim vector via projection layer
+  MaxSimMatrix  — query×doc cosine matrix, row-maxima, summed score
+
+COLBERT vs HNSW
+  ✓ Per-token context: "bank" near "account" ≠ "bank" near "river"
+  ✓ Late interaction: disambiguation at query time, not index time
+  ✓ Better precision on polysemous (multi-meaning) words
+  ✗ Full scan: still scoring EVERY document in the index
+
+At 1M documents, scoring every doc with MaxSim is infeasible.
+PLAID adds centroid ANN pruning to select ~1% of docs BEFORE MaxSim.
+
 Run: cargo demo plaid
 """

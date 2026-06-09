@@ -1,38 +1,156 @@
 [meta]
-title = "TACHIOM: Token-Aware Clustering"
-engine = "tachiom"
-description = "TACHIOM runs 4-phase TAC to build per-token-type centroid sets with budget allocation"
+title   = "TACHIOM: Token-Aware Clustering with Budget Allocation"
+engine  = "tachiom"
 version = 1
+description = """
+Step 5 of 5. WARP's Xtr registry grows as O(token_types x docs) — untenable at scale.
+
+TACHIOM solves this with Token-Aware Clustering (TAC): build a centroid set PER TOKEN TYPE,
+sized by that type's importance (variance and frequency). High-variance token types get more
+centroids; rare "tail" tokens get fewer. A budget B is distributed using 4 phases: tail
+classification, damped scoring, budget allocation, and kj-means clustering per type.
+
+At query time: centroid ANN per token type (like PLAID) but with type-specific cluster
+granularity. Final ranking: MaxSim on the gathered candidate set.
+"""
 
 [corpus]
 type = "shared"
 
 [[steps]]
-op = "index"
-args = ["all"]
-narration = "Indexing all docs. TACHIOM's TAC pipeline fires: tail handling, damped scoring, budget reconciliation, then parallel κⱼ-means per token type."
+op        = "index"
+args      = ["all"]
+narration = """
+INDEXING all 20 docs with TACHIOM
+
+TACHIOM indexing runs 4 phases (TAC = Token-Aware Clustering):
+
+  Phase 1 — Tail Classification
+    Sort token types by frequency. Classify each as:
+      TAIL   (freq < mu=128)  — rare tokens, few centroids needed
+      NORMAL (mu <= freq < tau=256) — moderate frequency
+      HEAVY  (freq >= tau=256)  — common tokens, more centroids needed
+
+  Phase 2 — Damped Scoring
+    wj = sqrt(nj) * sj  where sj = embedding variance for token type j
+    High-variance types (contextually diverse) earn higher centroid budgets.
+
+  Phase 3 — Budget Allocation
+    raw kj = B * wj/sum(w),  then clamp to [epsilon=4, theta=39]
+
+  Phase 4 — kj-means per token type (parallel)
+    Cluster the embeddings for each token type into kj centroids.
+
+Watch all four phases fire in sequence below.
+"""
 
 [[steps]]
-op = "trace"
-args = ["tail"]
-narration = "Phase 1 — Tail Handling: tokens with freq < μ=128 are 'tail', μ≤freq<τ=256 are 'normal', ≥τ are 'heavy'. Each class gets different centroid budget treatment."
+op        = "trace"
+args      = ["tail"]
+narration = """
+PHASE 1 — TAIL CLASSIFICATION
+
+Each token type is classified by how often it appears across all documents.
+
+  TAIL    freq < mu=128    Rare tokens. One or two centroids suffice.
+  NORMAL  mu <= freq < tau=256   Moderate frequency. Standard budget allocation.
+  HEAVY   freq >= tau=256  Very common tokens ("the", "a"). High frequency
+                           means more centroid budget to capture diversity.
+
+The frequency bar shows each token type's count relative to tau=256.
+
+WHY THIS MATTERS: PLAID uses the same centroid count for ALL token types.
+A rare token like "interferometry" has very low contextual variance — a single
+centroid captures it. A common token like "bank" appears in many contexts —
+it needs more centroids to separate its river vs financial embeddings.
+"""
 
 [[steps]]
-op = "trace"
-args = ["damped"]
-narration = "Phase 2 — Damped Scoring: sⱼ = variance of token type's embeddings. wⱼ = √nⱼ · sⱼ. High-variance token types get more centroids."
+op        = "trace"
+args      = ["damped"]
+narration = """
+PHASE 2 — DAMPED SCORING
+
+  wj = sqrt(nj) * sj
+
+  nj = number of occurrences of token type j across the corpus
+  sj = average pairwise embedding variance (how spread out the embeddings are)
+  sqrt(nj) = "damping" — large counts get penalized to avoid over-allocation
+
+HIGH weight → high variance (contextually diverse) → more centroids allocated
+LOW weight  → low variance (narrow meaning) or very rare → floor budget
+
+Example: token "bank" has high variance (river vs financial contexts) and gets
+more centroids than "slippery" (low variance, narrow context).
+
+The weight bars show relative centroid importance. Taller bar = more centroids.
+"""
 
 [[steps]]
-op = "trace"
-args = ["budget"]
-narration = "Phase 3+4 — Budget: raw κⱼ = B · wⱼ/Σw, then clamp to [ε=4, θ=39], then reconcile leftover budget."
+op        = "trace"
+args      = ["budget"]
+narration = """
+PHASE 3+4 — BUDGET ALLOCATION AND CLUSTERING
+
+  raw kj = B * wj / sum(w)   where B = total budget (e.g. 200 centroids)
+  kj = clamp(raw kj, epsilon=4, theta=39)
+
+After clamping, leftover budget (from floored types) is redistributed proportionally
+to uncapped types (BudgetReconcile event).
+
+IMPORTANT vs PLAID:
+  PLAID uses K centroids shared globally across ALL token types.
+  TACHIOM uses kj centroids per token type — token "bank" might get 12 centroids
+  while token "slippery" gets the floor 4. Total adds up to budget B.
+
+CAPPED = hit ceiling theta=39 (very common, very diverse token type)
+FLOOR  = hit floor epsilon=4 (rare or low-variance token type)
+"""
 
 [[steps]]
-op = "inspect"
-args = ["pq"]
-narration = "3-Level Hierarchical PQ: 128-dim/8-subq, 64-dim/4-subq, 32-dim/2-subq. Progressively coarser quantization for fast distance estimation."
+op        = "inspect"
+args      = ["pq"]
+narration = """
+HIERARCHICAL PRODUCT QUANTIZATION (3 levels)
+
+TACHIOM uses 3-level hierarchical PQ for fast distance estimation before
+running exact MaxSim on the final candidate set:
+
+  Level 0: 128-dim / 8 subquantizers — coarse estimate (very fast)
+  Level 1:  64-dim / 4 subquantizers — medium estimate
+  Level 2:  32-dim / 2 subquantizers — fine estimate (more precise)
+
+This allows "funnel" scoring: use coarse PQ to cut 99% of candidates,
+medium PQ to cut 90% of the remainder, exact MaxSim on the survivors.
+At 4M+ total centroids this becomes critical to avoid scanning all of them.
+"""
 
 [[steps]]
-op = "query"
-args = ["bank interest rate", "5"]
-narration = "Query: 'bank interest rate'. TACHIOM searches per-token-type centroid sets, gathers candidates, and refines with MaxSim — efficient at 4M+ centroids."
+op        = "query"
+args      = ["bank interest rate", "5"]
+narration = """
+QUERY — "bank interest rate"
+
+TACHIOM pipeline:
+  1. Tokenize: ["bank", "interest", "rate"]
+  2. Per-token-type centroid ANN: search ONLY the kj centroids for each token type
+  3. Candidate gather: union of docs associated with matched centroids
+  4. MaxSim refine on candidates → ranked results
+
+WHY PER-TYPE CENTROIDS HELP:
+  Query-token "bank" searches only the centroids built from "bank" embeddings.
+  Those centroids have ALREADY separated the river vs financial meanings of "bank"
+  (high variance → more centroids → finer clustering).
+  PLAID's shared centroids mix all token types together, potentially confusing
+  "bank" with other spatially close tokens.
+
+Ground truth: docs 6, 19, 15, 1, 12 (financial) are RELEVANT.
+
+COMPLETE ENGINE COMPARISON:
+  HNSW    — 1 vector/doc, single cosine ANN. Fast, imprecise on ambiguous words.
+  ColBERT — N vectors/doc, MaxSim over ALL docs. Precise, slow at scale.
+  PLAID   — ColBERT + global centroid prune. Fast, but hard centroid boundaries.
+  WARP    — ColBERT + Xtr soft threshold. Better recall, but O(types x docs) registry.
+  TACHIOM — WARP with per-type centroid budgets. Scales to 4M+ centroids, fixed B.
+"""
+pause = true

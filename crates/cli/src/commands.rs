@@ -34,6 +34,12 @@ pub enum TopCommand {
         #[command(subcommand)]
         target: BenchTarget,
     },
+    /// Synthetic scalability benchmark: ColBERT O(N) vs PLAID/WARP pruned scan.
+    /// Runs at 1K / 10K / 100K docs and extrapolates to 1M.
+    Scale,
+    /// Accuracy-speed tradeoff benchmark: Recall@10 vs speedup for PLAID / WARP / TACHIOM.
+    /// Generates SVG plots in plots/ directory.
+    Tradeoff,
 }
 
 #[derive(Subcommand)]

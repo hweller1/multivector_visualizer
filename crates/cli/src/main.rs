@@ -2,6 +2,8 @@ mod commands;
 mod compare;
 mod demo;
 mod repl;
+mod scalebench;
+mod tradeoffbench;
 
 use clap::Parser;
 use colbert::ColBertEngine;
@@ -123,6 +125,12 @@ async fn main() -> anyhow::Result<()> {
                     repl::run_repl(&mut eng, viz).await?;
                 }
             }
+        }
+        TopCommand::Scale => {
+            scalebench::run_scalebench();
+        }
+        TopCommand::Tradeoff => {
+            tradeoffbench::run_tradeoff()?;
         }
         TopCommand::Bench { target } => {
             let runner = bench::BenchRunner::new();

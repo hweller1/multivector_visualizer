@@ -62,6 +62,7 @@ impl XtrScorer {
 
             log.push(TraceEvent::XtrScore {
                 query_token_id,
+                query_token: query_matrix.tokens.get(qi).cloned().unwrap_or_default(),
                 token_scores,
             });
         }

@@ -7,13 +7,20 @@ pub enum TraceEvent {
     // ── HNSW ─────────────────────────────────────────────────────────────
     HnswInsert {
         doc_id: u32,
-        layer: u8,
-        neighbors: Vec<u32>,
+        doc_text: String,
+        /// (layer, neighbor_doc_ids_at_that_layer) — one entry per layer the node appears on.
+        /// Multiple entries mean the node was promoted above layer 0.
+        layers: Vec<(u8, Vec<u32>)>,
     },
     HnswQuery {
-        hop: u32,
-        current: u32,
+        /// HNSW layer being traversed (high = long-range, 0 = fine-grained).
+        layer: u8,
+        /// Node we entered this layer at (u32::MAX = query vector starting point).
+        entry_doc: u32,
+        /// All candidates assessed at this layer, sorted by score descending.
         candidates: Vec<(u32, f32)>,
+        /// Doc_id we greedily moved to after this layer.
+        greedy_best: u32,
     },
     HnswLayerStats {
         layer: u8,
@@ -33,6 +40,7 @@ pub enum TraceEvent {
     },
     MaxSimMatrix {
         query_tokens: Vec<String>,
+        doc_tokens: Vec<String>,
         doc_id: u32,
         matrix: Vec<Vec<f32>>,
         row_maxima: Vec<f32>,
@@ -63,6 +71,7 @@ pub enum TraceEvent {
     // ── WARP ─────────────────────────────────────────────────────────────
     XtrScore {
         query_token_id: u32,
+        query_token: String,
         token_scores: Vec<(u32, f32)>,
     },
     CandidateGather {
@@ -124,10 +133,27 @@ pub struct TachiomTimings {
     pub total_ms: f64,
 }
 
+/// Optional timing breakdown attached to a query TraceLog.
+/// Engines fill in what they know; demo.rs displays what's present.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct OpTiming {
+    /// Time spent fetching/computing the query embedding (network or local model).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub embed_ms: Option<f64>,
+    /// Time spent on the actual index search (ANN walk, MaxSim, centroid scan, etc.).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search_ms: Option<f64>,
+    /// How many documents went through the final MaxSim / scoring step.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub docs_scored: Option<usize>,
+}
+
 /// Ordered sequence of trace events for one operation.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TraceLog {
     pub events: Vec<(u64 /* epoch_ms */, TraceEvent)>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timing: Option<OpTiming>,
 }
 
 impl TraceLog {

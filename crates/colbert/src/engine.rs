@@ -2,8 +2,9 @@ use crate::encoder::ColBertEncoder;
 use crate::index::ColBertIndex;
 use anyhow::Result;
 use async_trait::async_trait;
-use common::{Engine, TraceEvent, TraceLog};
+use common::{Engine, OpTiming, TraceEvent, TraceLog};
 use std::cell::RefCell;
+use std::time::Instant;
 
 pub struct ColBertEngine {
     pub encoder: RefCell<ColBertEncoder>,
@@ -38,16 +39,8 @@ impl Engine for ColBertEngine {
         let (matrix, _vocab_ids, mut log) =
             self.encoder.borrow_mut().encode_with_trace(doc_id, text)?;
 
-        // Emit one HnswInsert-style event per token (logical insertion, not an ANN graph).
-        // REPL narration: "ColBERT's logical insertion, not yet an ANN graph — that comes in PLAID."
         for (i, row) in matrix.rows.iter().enumerate() {
             let preview: [f32; 3] = [row[0], row[1], row[2]];
-            log.push(TraceEvent::HnswInsert {
-                doc_id,
-                layer: 0,
-                neighbors: vec![i as u32],
-            });
-            // Also emit TokenEmbed for visualization (AC-2.2)
             log.push(TraceEvent::TokenEmbed {
                 doc_id,
                 token: matrix.tokens[i].clone(),
@@ -61,8 +54,14 @@ impl Engine for ColBertEngine {
     }
 
     async fn query(&self, text: &str, top_k: usize) -> Result<(Vec<(u32, f32)>, TraceLog)> {
+        let t = Instant::now();
         let (query_matrix, _vocab_ids) = self.encoder.borrow_mut().encode(text)?;
-        let (results, log) = self.index.search_with_trace(&query_matrix, top_k);
+        let (results, mut log) = self.index.search_with_trace(&query_matrix, top_k);
+        log.timing = Some(OpTiming {
+            embed_ms: None,
+            search_ms: Some(t.elapsed().as_secs_f64() * 1000.0),
+            docs_scored: Some(self.index.docs.len()),
+        });
         Ok((results, log))
     }
 
