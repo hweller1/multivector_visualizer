@@ -159,6 +159,15 @@ Speedup over ColBERT full scan
 <circle cx="116" cy="266" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="85" cy="162" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="64" cy="58" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="400,420 378,401 347,369 325,338 273,209 220,109 167,74 114,74 "/>
+<circle cx="400" cy="420" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="378" cy="401" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="347" cy="369" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="325" cy="338" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="273" cy="209" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="220" cy="109" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="167" cy="74" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="114" cy="74" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="186,58 186,58 156,58 137,58 112,58 88,58 66,58 "/>
 <circle cx="186" cy="58" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
 <circle cx="186" cy="58" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
@@ -194,23 +203,27 @@ Speedup over ColBERT full scan
 <circle cx="186" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
 <circle cx="186" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
 <circle cx="186" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
-<rect x="184" y="411" width="245" height="70" opacity="0.88" fill="#FFFFFF" stroke="none"/>
-<rect x="184" y="411" width="245" height="70" opacity="1" fill="none" stroke="#A0A0A0"/>
-<text x="224" y="421" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+<rect x="184" y="397" width="245" height="84" opacity="0.88" fill="#FFFFFF" stroke="none"/>
+<rect x="184" y="397" width="245" height="84" opacity="1" fill="none" stroke="#A0A0A0"/>
+<text x="224" y="407" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 Random (lower bound)
+</text>
+<text x="224" y="421" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+HNSW — sentence avg vector
 </text>
 <text x="224" y="435" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 PLAID — global k-means centroids
 </text>
-<text x="224" y="449" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+<text x="224" y="448" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 WARP — Xtr token similarity threshold
 </text>
 <text x="224" y="462" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 TACHIOM — per-type centroid budgets
 </text>
-<polyline fill="none" opacity="1" stroke="#8C8C8C" stroke-width="1" points="194,425 216,425 "/>
+<polyline fill="none" opacity="1" stroke="#8C8C8C" stroke-width="1" points="194,411 216,411 "/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="194,425 216,425 "/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="194,439 216,439 "/>
-<polyline fill="none" opacity="1" stroke="#D73027" stroke-width="2" points="194,453 216,453 "/>
+<polyline fill="none" opacity="1" stroke="#D73027" stroke-width="2" points="194,452 216,452 "/>
 <polyline fill="none" opacity="1" stroke="#1A9850" stroke-width="3" points="194,466 216,466 "/>
 <text x="665" y="15" dy="0.76em" text-anchor="middle" font-family="sans-serif" font-size="12.096774193548388" opacity="1" fill="#000000">
 N = 10K
@@ -371,6 +384,15 @@ Speedup over ColBERT full scan
 <circle cx="522" cy="265" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="488" cy="149" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="464" cy="58" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="877,458 877,456 877,451 877,443 877,414 834,380 775,345 716,250 "/>
+<circle cx="877" cy="458" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="877" cy="456" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="877" cy="451" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="877" cy="443" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="877" cy="414" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="834" cy="380" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="775" cy="345" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="716" cy="250" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="604,72 601,58 600,58 600,58 600,58 568,58 506,58 487,58 464,58 "/>
 <circle cx="604" cy="72" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
 <circle cx="601" cy="58" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
@@ -408,23 +430,27 @@ Speedup over ColBERT full scan
 <circle cx="600" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
 <circle cx="600" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
 <circle cx="600" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
-<rect x="627" y="411" width="245" height="70" opacity="0.88" fill="#FFFFFF" stroke="none"/>
-<rect x="627" y="411" width="245" height="70" opacity="1" fill="none" stroke="#A0A0A0"/>
-<text x="667" y="421" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+<rect x="627" y="397" width="245" height="84" opacity="0.88" fill="#FFFFFF" stroke="none"/>
+<rect x="627" y="397" width="245" height="84" opacity="1" fill="none" stroke="#A0A0A0"/>
+<text x="667" y="407" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 Random (lower bound)
+</text>
+<text x="667" y="421" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+HNSW — sentence avg vector
 </text>
 <text x="667" y="435" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 PLAID — global k-means centroids
 </text>
-<text x="667" y="449" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+<text x="667" y="448" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 WARP — Xtr token similarity threshold
 </text>
 <text x="667" y="462" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 TACHIOM — per-type centroid budgets
 </text>
-<polyline fill="none" opacity="1" stroke="#8C8C8C" stroke-width="1" points="637,425 659,425 "/>
+<polyline fill="none" opacity="1" stroke="#8C8C8C" stroke-width="1" points="637,411 659,411 "/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="637,425 659,425 "/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="637,439 659,439 "/>
-<polyline fill="none" opacity="1" stroke="#D73027" stroke-width="2" points="637,453 659,453 "/>
+<polyline fill="none" opacity="1" stroke="#D73027" stroke-width="2" points="637,452 659,452 "/>
 <polyline fill="none" opacity="1" stroke="#1A9850" stroke-width="3" points="637,466 659,466 "/>
 <text x="1108" y="15" dy="0.76em" text-anchor="middle" font-family="sans-serif" font-size="12.096774193548388" opacity="1" fill="#000000">
 N = 100K
@@ -585,6 +611,15 @@ Speedup over ColBERT full scan
 <circle cx="965" cy="263" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="931" cy="161" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="907" cy="58" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="1320,483 1320,483 1320,480 1320,480 1320,474 1320,457 1320,440 1320,417 "/>
+<circle cx="1320" cy="483" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="483" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="480" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="480" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="474" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="457" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="440" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="1320" cy="417" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="1068,129 1052,70 1047,64 1044,61 1043,58 1043,58 1043,58 1043,58 907,58 "/>
 <circle cx="1068" cy="129" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
 <circle cx="1052" cy="70" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
@@ -622,22 +657,26 @@ Speedup over ColBERT full scan
 <circle cx="1043" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
 <circle cx="1043" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
 <circle cx="1043" cy="58" r="4" opacity="1" fill="#1A9850" stroke="none" stroke-width="1"/>
-<rect x="1070" y="411" width="245" height="70" opacity="0.88" fill="#FFFFFF" stroke="none"/>
-<rect x="1070" y="411" width="245" height="70" opacity="1" fill="none" stroke="#A0A0A0"/>
-<text x="1110" y="421" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+<rect x="1070" y="397" width="245" height="84" opacity="0.88" fill="#FFFFFF" stroke="none"/>
+<rect x="1070" y="397" width="245" height="84" opacity="1" fill="none" stroke="#A0A0A0"/>
+<text x="1110" y="407" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 Random (lower bound)
+</text>
+<text x="1110" y="421" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+HNSW — sentence avg vector
 </text>
 <text x="1110" y="435" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 PLAID — global k-means centroids
 </text>
-<text x="1110" y="449" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
+<text x="1110" y="448" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 WARP — Xtr token similarity threshold
 </text>
 <text x="1110" y="462" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#000000">
 TACHIOM — per-type centroid budgets
 </text>
-<polyline fill="none" opacity="1" stroke="#8C8C8C" stroke-width="1" points="1080,425 1102,425 "/>
+<polyline fill="none" opacity="1" stroke="#8C8C8C" stroke-width="1" points="1080,411 1102,411 "/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="1080,425 1102,425 "/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="1080,439 1102,439 "/>
-<polyline fill="none" opacity="1" stroke="#D73027" stroke-width="2" points="1080,453 1102,453 "/>
+<polyline fill="none" opacity="1" stroke="#D73027" stroke-width="2" points="1080,452 1102,452 "/>
 <polyline fill="none" opacity="1" stroke="#1A9850" stroke-width="3" points="1080,466 1102,466 "/>
 </svg>

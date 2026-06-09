@@ -1,6 +1,7 @@
 mod commands;
 mod compare;
 mod demo;
+mod gtbench;
 mod repl;
 mod scalebench;
 mod tradeoffbench;
@@ -131,6 +132,10 @@ async fn main() -> anyhow::Result<()> {
         }
         TopCommand::Tradeoff => {
             tradeoffbench::run_tradeoff()?;
+        }
+        TopCommand::GtBench => {
+            let vp = vocab_path();
+            gtbench::run_gtbench(&vp).await?;
         }
         TopCommand::Bench { target } => {
             let runner = bench::BenchRunner::new();

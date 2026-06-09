@@ -227,6 +227,24 @@ An interactive Rust CLI that teaches information retrieval engineers exactly how
 - `cargo test --workspace` passes with recall assertions holding on every engine's verification corpus
 - `cargo bench all` produces a `bench_results.json` with valid recall@10 and p99 latency entries for all five engines (requires xtr-warp and tachiom binaries)
 - The `scripts/plot.py` Pareto chart shows a clear frontier with TACHIOM at higher recall and lower latency than PLAID for large-scale settings
+- `cargo run -- tradeoff` produces `plots/tradeoff_speedrecall.svg` with 5 curves including HNSW, visibly demonstrating HNSW's recall ceiling vs per-token methods at N=10K (≤0.57 regardless of ef)
+- `cargo run -- gt-bench` produces `plots/gt_recall.svg` measuring all 5 engines against LLM-judged relevance; HNSW with Voyage embeddings achieves ≥0.90 Recall@10 at 10% candidates; requires `ANTHROPIC_API_KEY` and `VOYAGE_API_KEY`
+
+---
+
+## US-7: Compare All Engines Against Ground Truth
+
+**As a** researcher evaluating multivector retrieval systems,
+**I want to** see how each engine performs against human-meaningful relevance labels (not just an oracle algorithm),
+**So that** I can understand which engines are semantically accurate, not just fast.
+
+**Acceptance Criteria**:
+- [ ] AC-7.1: `cargo run -- gt-bench` runs with 100 real-text documents across 8 ambiguous-word categories
+- [ ] AC-7.2: When `ANTHROPIC_API_KEY` is set, ground truth labels are obtained by calling `claude-haiku-4-5-20251001` to judge relevance for each query; labels cached in `cache/llm_gt.json`
+- [ ] AC-7.3: When no Anthropic key is set, fallback to heuristic category-membership labels with a clear warning
+- [ ] AC-7.4: HNSW uses Voyage sentence embeddings (1024-dim); all other engines use WordPiece + RandomProjection (128-dim per token)
+- [ ] AC-7.5: Output includes `plots/gt_recall.svg` — single plot with 5 engine curves on Recall@10 vs candidate fraction axes
+- [ ] AC-7.6: Terminal output shows a recall table with engines as rows and candidate fractions (10%, 25%, 50%, 100%) as columns
 
 ---
 

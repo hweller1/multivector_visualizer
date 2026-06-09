@@ -12,6 +12,7 @@
 //!   • TACHIOM: per-type centroid budgets (tail tokens = more budget = better recall
 //!              for rare, discriminative queries)
 
+use hnsw_rs::prelude::*;
 use plotters::prelude::*;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::collections::HashSet;
@@ -79,6 +80,7 @@ struct Doc {
 }
 
 struct Query {
+    #[allow(dead_code)]
     topic: usize,
     tokens: Vec<[f32; DIM]>,
 }
@@ -449,8 +451,61 @@ fn bench_at_n(n_docs: usize, rng: &mut SmallRng) -> Vec<Curve> {
         tac_pts.push(Pt { frac: tot_f / n, recall: tot_r / n });
     }
 
+    // ── HNSW — sentence avg vector ────────────────────────────────────────────
+    // Single-vector ANN: each doc is represented as the L2-normalized mean of
+    // its token embeddings.  HNSW is competitive on well-separated topics but
+    // has a recall ceiling vs ColBERT oracle because MaxSim uses per-token
+    // interactions that a sentence average loses.
+    print!("  N={n_docs:>7}  HNSW sentence avg…");
+    let _ = std::io::Write::flush(&mut std::io::stdout());
+    let sent_vecs: Vec<Vec<f32>> = docs.iter().map(|d| {
+        let mut avg = vec![0f32; DIM];
+        for tok in &d.tokens { for (a, &t) in avg.iter_mut().zip(tok.iter()) { *a += t; } }
+        let n = d.tokens.len() as f32;
+        avg.iter_mut().for_each(|x| *x /= n);
+        let norm = avg.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+        avg.iter_mut().for_each(|x| *x /= norm);
+        avg
+    }).collect();
+    let query_svecs: Vec<Vec<f32>> = queries.iter().map(|q| {
+        let mut avg = vec![0f32; DIM];
+        for tok in &q.tokens { for (a, &t) in avg.iter_mut().zip(tok.iter()) { *a += t; } }
+        let n = q.tokens.len() as f32;
+        avg.iter_mut().for_each(|x| *x /= n);
+        let norm = avg.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+        avg.iter_mut().for_each(|x| *x /= norm);
+        avg
+    }).collect();
+
+    let m_conn = 8usize.min(n_docs / 4 + 2);
+    let hnsw_idx = Hnsw::<f32, DistCosine>::new(m_conn, n_docs + 1, 8, 64, DistCosine {});
+    for (i, sv) in sent_vecs.iter().enumerate() {
+        hnsw_idx.insert((sv.as_slice(), i));
+    }
+
+    let ef_vals: Vec<usize> = [4usize, 8, 12, 16, 24, 32, 64, 128, 256, 512]
+        .iter().copied().filter(|&ef| ef <= n_docs && ef >= K_EVAL).collect();
+    let mut hnsw_pts = vec![];
+    for ef in ef_vals {
+        let (mut tot_f, mut tot_r) = (0.0f64, 0.0f64);
+        for _ in 0..n_rep {
+            for ((q, o), qsv) in queries.iter().zip(&oracle).zip(&query_svecs) {
+                let results = hnsw_idx.search(qsv.as_slice(), ef, ef);
+                let cands: HashSet<usize> = results.iter().map(|r| r.d_id).collect();
+                tot_f += cands.len() as f64 / n_docs as f64;
+                let cands = if cands.is_empty() { std::iter::once(0).collect() } else { cands };
+                tot_r += recall_k(o, &score_candidates(&q.tokens, &docs, &cands));
+            }
+        }
+        let n = (n_rep * n_q) as f64;
+        hnsw_pts.push(Pt { frac: tot_f / n, recall: tot_r / n });
+    }
+    hnsw_pts.sort_by(|a, b| a.frac.partial_cmp(&b.frac).unwrap());
+    println!(" {} ef-points", hnsw_pts.len());
+
     vec![
         Curve { name: "Random (lower bound)", short: "Random", color: RGBColor(140, 140, 140), stroke: 1, pts: rand_pts },
+        Curve { name: "HNSW — sentence avg vector", short: "HNSW", color: RGBColor(255, 127, 14), stroke: 2, pts: hnsw_pts },
         Curve { name: "PLAID — global k-means centroids", short: "PLAID", color: RGBColor(33, 102, 172), stroke: 2, pts: plaid_pts },
         Curve { name: "WARP — Xtr token similarity threshold", short: "WARP", color: RGBColor(215, 48, 39), stroke: 2, pts: warp_pts },
         Curve { name: "TACHIOM — per-type centroid budgets", short: "TACHIOM", color: RGBColor(26, 152, 80), stroke: 3, pts: tac_pts },
@@ -716,7 +771,7 @@ pub fn run_tradeoff() -> anyhow::Result<()> {
     println!("{CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}");
     println!("{BOLD}  Accuracy-Speed Tradeoff Benchmark{RESET}");
     println!("{DIM_C}  Structured synthetic corpus: 5 topics (2 head, 3 tail), {DIM}-dim tokens");
-    println!("  Engines: Random / PLAID / WARP / TACHIOM  —  Recall@{K_EVAL}, 3 scales{RESET}");
+    println!("  Engines: Random / HNSW / PLAID / WARP / TACHIOM  —  Recall@{K_EVAL}, 3 scales{RESET}");
     println!("{CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}");
     println!();
 

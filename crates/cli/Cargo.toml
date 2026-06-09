@@ -25,3 +25,5 @@ tracing-subscriber = { workspace = true }
 dotenvy  = { workspace = true }
 rand     = { workspace = true }
 plotters = { workspace = true }
+hnsw_rs  = { workspace = true }
+reqwest  = { workspace = true }

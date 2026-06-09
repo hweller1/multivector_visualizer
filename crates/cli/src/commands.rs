@@ -37,9 +37,13 @@ pub enum TopCommand {
     /// Synthetic scalability benchmark: ColBERT O(N) vs PLAID/WARP pruned scan.
     /// Runs at 1K / 10K / 100K docs and extrapolates to 1M.
     Scale,
-    /// Accuracy-speed tradeoff benchmark: Recall@10 vs speedup for PLAID / WARP / TACHIOM.
+    /// Accuracy-speed tradeoff benchmark: Recall@10 vs speedup for HNSW / PLAID / WARP / TACHIOM.
     /// Generates SVG plots in plots/ directory.
     Tradeoff,
+    /// Ground-truth benchmark using LLM-as-judge (Claude Haiku) relevance labels.
+    /// 100 real-text docs, all 5 engines, Voyage embeddings for HNSW.
+    /// Requires ANTHROPIC_API_KEY and VOYAGE_API_KEY in .env (cached after first run).
+    GtBench,
 }
 
 #[derive(Subcommand)]

@@ -1478,3 +1478,54 @@ _Requirements: AC-1.1, AC-1.2, AC-1.3, AC-1.4, AC-8.7_
 **Done when**: Zero errors
 
 **Commit**: None
+
+---
+
+## Phase 7: Research-Quality Benchmarks ✅ COMPLETE
+
+Adds HNSW to the accuracy-speed tradeoff plot and a new ground-truth benchmark using LLM-as-judge relevance labels.
+
+---
+
+### 7.1 ✅ HNSW in synthetic tradeoff benchmark
+
+**Do**:
+1. Add `hnsw_rs = { workspace = true }` to `crates/cli/Cargo.toml`
+2. In `tradeoffbench.rs::bench_at_n`: build HNSW over sentence vectors (L2-normalized mean of per-token embeddings); sweep ef=[4,8,12,16,24,32,64,128,256,512] at each N
+3. Add HNSW curve (orange, `RGBColor(255,127,14)`) between Random and PLAID in returned `Vec<Curve>`
+4. Update header string to include HNSW
+
+**Key result**: HNSW recall ceiling visible at N=10K — stuck at 0.572 regardless of ef, demonstrating that sentence-average vectors lose per-token MaxSim discrimination.
+
+**Files**: `crates/cli/src/tradeoffbench.rs`, `crates/cli/Cargo.toml`
+
+**Commit**: `feat(bench): add HNSW sentence-avg curve to tradeoff benchmark`
+
+---
+
+### 7.2 ✅ Ground-truth benchmark with LLM-as-judge (`cargo run -- gt-bench`)
+
+**Do**:
+1. Add `reqwest = { workspace = true }` to `crates/cli/Cargo.toml`
+2. Create `crates/cli/src/gtbench.rs` with:
+   - `GT_CORPUS`: 100 real-text documents across 8 ambiguous-word categories (river bank, financial bank, construction crane, bird crane, elephant trunk, car trunk, physics light, fashion lightweight) + anatomy trunk + misc distractors
+   - `GT_QUERIES`: 10 queries spanning all categories
+   - `AnthropicClient`: calls `POST https://api.anthropic.com/v1/messages` with `claude-haiku-4-5-20251001`, batch-judges all 100 docs per query, parses JSON array response; caches to `cache/llm_gt.json`
+   - `VoyageEmbed`: calls `https://ai.mongodb.com/v1/embeddings` for 1024-dim sentence embeddings; caches to `cache/gt_voyage_embeddings.json` and `cache/gt_voyage_query_embeddings.json`
+   - Fallback: if `ANTHROPIC_API_KEY` absent, uses category membership as heuristic GT
+   - Benchmarks: HNSW (ef sweep, cosine ranking), ColBERT (full scan MaxSim), PLAID (global k-means, probe sweep), WARP (threshold sweep), TACHIOM (per-category centroid budgets, probe sweep)
+   - Metric: Recall@10 vs LLM ground truth
+   - Output: `plots/gt_recall.svg` — single panel, all 5 engines
+3. Add `GtBench` command to `commands.rs`, handler in `main.rs`
+
+**Key results** (heuristic GT):
+- HNSW (Voyage): 0.940 Recall@10 at 10% candidates — semantics match topic GT
+- TACHIOM: 0.840 — per-type budget better for tail categories (5-doc sets)
+- ColBERT full scan: 0.700 — lexical overlap misses some category-relevant docs
+- PLAID/WARP: 0.690–0.700
+
+**Files**: `crates/cli/src/gtbench.rs`, `crates/cli/src/commands.rs`, `crates/cli/src/main.rs`
+
+**Verify**: `cargo run --release -- gt-bench 2>&1 | grep "plots/gt_recall.svg"`
+
+**Commit**: `feat(bench): add LLM-as-judge ground truth benchmark (gt-bench command)`
