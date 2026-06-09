@@ -181,17 +181,57 @@ Open the viewer:
 open plots/index.html
 ```
 
+### Benchmark results
+
+Recall@10 vs candidate fraction — measured on structured synthetic corpus (128-dim token embeddings, 5 topics, head/tail distribution). Oracle = ColBERT full scan. Averaged over 15–50 queries per scale.
+
+**N = 1K**
+
+| Engine | 1% | 5% | 10% | 20% | 50% |
+|---|---|---|---|---|---|
+| Random (lower bound) | 0.010 | 0.048 | 0.078 | 0.223 | 0.512 |
+| PLAID — global k-means | — | — | **1.000** | 1.000 | 1.000 |
+| WARP — Xtr threshold | 0.305 | 0.950 | 1.000 | 1.000 | 1.000 |
+| TACHIOM — per-type budgets | — | — | **1.000** | 1.000 | 1.000 |
+
+**N = 10K**
+
+| Engine | 1% | 5% | 10% | 20% | 50% |
+|---|---|---|---|---|---|
+| Random (lower bound) | 0.008 | 0.048 | 0.104 | 0.200 | 0.516 |
+| PLAID — global k-means | — | — | 0.968 | 1.000 | 1.000 |
+| WARP — Xtr threshold | **0.884** | **1.000** | 1.000 | 1.000 | 1.000 |
+| TACHIOM — per-type budgets | — | — | 0.980 | 1.000 | 1.000 |
+
+**N = 100K**
+
+| Engine | 1% | 5% | 10% | 20% | 50% |
+|---|---|---|---|---|---|
+| Random (lower bound) | 0.007 | 0.053 | 0.093 | 0.267 | 0.520 |
+| PLAID — global k-means | — | 0.833 | 0.833 | 1.000 | 1.000 |
+| **WARP — Xtr threshold** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
+| TACHIOM — per-type budgets | — | 0.740 | 0.740 | 1.000 | 1.000 |
+
+`—` = fewer candidates than the engine's minimum probe depth at this N.
+
+### Plots
+
+![Recall@10 vs Speedup — 3 corpus scales](plots/tradeoff_speedrecall.svg)
+
+*Figure 1: Recall@10 vs speedup over full ColBERT scan (log x-axis). Each point is a different pruning parameter. Higher and further right is better. WARP achieves perfect recall at 100× speedup; PLAID plateaus at ~0.83 due to centroid approximation error.*
+
+![Recall@10 vs candidate fraction](plots/recall_vs_frac.svg)
+
+*Figure 2: Same data, re-plotted as recall vs % of corpus scored. The steep WARP curve vs gradual PLAID/TACHIOM curves shows the value of exact-similarity candidate selection.*
+
+Open [`plots/index.html`](plots/index.html) for a paper-style viewer with callout annotations and mechanism comparison table.
+
 ### What the plots show
 
-**Figure 1 — Speed-Recall tradeoff (log x-axis = speedup over full ColBERT scan):**
-
-- **WARP** (red): reaches Recall@10 = 1.000 at 100× speedup. Exact Xtr token similarities let it find oracle-relevant docs with only 1% of the corpus scored.
-- **PLAID** (blue): peaks at ~0.83 Recall@10 at 5% candidates, N=100K. Global k-means centroids introduce approximation error — oracle docs near centroid boundaries get missed.
-- **TACHIOM** (green): converges to oracle quality at ~20% candidates; type-specific centroid budgets reduce contamination for tail-topic queries.
+- **WARP** (red): Recall@10 = 1.000 at 100× speedup (1% of corpus). Exact Xtr token similarities — zero centroid approximation error.
+- **PLAID** (blue): plateaus at ~0.83 Recall@10 at 5% candidates, N=100K. Global k-means centroids displace relevant docs near cluster boundaries.
+- **TACHIOM** (green): converges to oracle quality at ~20% candidates; per-type budgets reduce contamination for tail-topic queries.
 - **Random** (gray): Recall@10 ≈ candidate fraction — the lower bound.
-
-**Figure 2 — Recall vs candidate fraction (log x-axis = % of corpus):**
-The same data re-plotted to show how recall grows as the candidate set expands. The steep rise of WARP vs gradual rise of PLAID quantifies the value of exact-similarity candidate selection.
 
 **Key result:** the PLAID → WARP gap is fundamental, not tunable. PLAID needs a larger candidate fraction to compensate for centroid approximation error; WARP's exact threshold bypasses this at the cost of an O(N) scan phase.
 
