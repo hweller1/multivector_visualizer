@@ -6,7 +6,7 @@ use super::tac::{
 use anyhow::Result;
 use async_trait::async_trait;
 use colbert::encoder::ColBertEncoder;
-use colbert::maxsim::{cosine, maxsim};
+use colbert::maxsim::{cosine, maxsim_weighted};
 use common::{token::TOKEN_DIM, trace::TraceEvent, Engine, OpTiming, TokenMatrix, TraceLog};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -20,6 +20,12 @@ pub struct TachiomEngine {
     pub centroids_by_type: HashMap<u32, Vec<[f32; TOKEN_DIM]>>,
     pq: HierarchicalPQ,
     pub token_type_embeddings: HashMap<u32, Vec<[f32; TOKEN_DIM]>>,
+    /// vocab_id → Vec<(doc_id, embedding)> — tracks per-doc token occurrences for centroid assignment.
+    token_type_doc_embs: HashMap<u32, Vec<(u32, [f32; TOKEN_DIM])>>,
+    /// vocab_id → Vec<(doc_id, centroid_idx)> — rebuilt after each TAC rebuild.
+    doc_centroid_map: HashMap<u32, Vec<(u32, usize)>>,
+    /// vocab_id → number of docs containing it (for IDF).
+    token_doc_freq: HashMap<u32, usize>,
     colbert_docs: Vec<(u32, TokenMatrix)>,
     doc_vocab_ids: Vec<(u32, Vec<u32>)>,
     /// token_id → token string, built incrementally during indexing
@@ -41,6 +47,9 @@ impl TachiomEngine {
             centroids_by_type: HashMap::new(),
             pq: HierarchicalPQ::new(),
             token_type_embeddings: HashMap::new(),
+            token_type_doc_embs: HashMap::new(),
+            doc_centroid_map: HashMap::new(),
+            token_doc_freq: HashMap::new(),
             colbert_docs: Vec::new(),
             doc_vocab_ids: Vec::new(),
             vocab_map: HashMap::new(),
@@ -76,6 +85,22 @@ impl TachiomEngine {
         let centroids = parallel_kappa_means(&self.token_type_embeddings, &kappa);
         self.centroids_by_type = centroids;
         self.damped_scorer = Some(damped);
+
+        // Build doc_centroid_map: for each vocab_id, assign each doc's token to its nearest centroid.
+        let mut dcm: HashMap<u32, Vec<(u32, usize)>> = HashMap::new();
+        for (&vid, doc_embs) in &self.token_type_doc_embs {
+            if let Some(cents) = self.centroids_by_type.get(&vid) {
+                for &(doc_id, emb) in doc_embs {
+                    let best_ci = cents.iter().enumerate()
+                        .map(|(ci, c)| (ci, cosine(&emb, c)))
+                        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+                        .map(|(ci, _)| ci)
+                        .unwrap_or(0);
+                    dcm.entry(vid).or_default().push((doc_id, best_ci));
+                }
+            }
+        }
+        self.doc_centroid_map = dcm;
     }
 }
 
@@ -130,15 +155,36 @@ impl Engine for TachiomEngine {
             self.vocab_map.entry(vid).or_insert_with(|| token_str.clone());
         }
 
+        // Clean up per-doc structures if re-indexing an existing doc.
+        if self.colbert_docs.iter().any(|(id, _)| *id == doc_id) {
+            for entries in self.token_type_doc_embs.values_mut() {
+                entries.retain(|(id, _)| *id != doc_id);
+            }
+            if let Some((_, old_vids)) = self.doc_vocab_ids.iter().find(|(id, _)| *id == doc_id) {
+                let unique_old: std::collections::HashSet<u32> = old_vids.iter().copied().collect();
+                for vid in unique_old {
+                    if let Some(f) = self.token_doc_freq.get_mut(&vid) {
+                        *f = f.saturating_sub(1);
+                    }
+                }
+            }
+        }
+        self.colbert_docs.retain(|(id, _)| *id != doc_id);
+        self.doc_vocab_ids.retain(|(id, _)| *id != doc_id);
+
         // Phase 1: tail handler + store embeddings
         for (&token_id, &row) in vocab_ids.iter().zip(matrix.rows.iter()) {
             self.tail_handler.update(token_id);
             self.token_type_embeddings.entry(token_id).or_default().push(row);
+            self.token_type_doc_embs.entry(token_id).or_default().push((doc_id, row));
+        }
+        // Track per-doc token freq for IDF (count unique vocab_ids per doc).
+        let unique_vids: std::collections::HashSet<u32> = vocab_ids.iter().copied().collect();
+        for vid in &unique_vids {
+            *self.token_doc_freq.entry(*vid).or_insert(0) += 1;
         }
 
-        self.colbert_docs.retain(|(id, _)| *id != doc_id);
         self.colbert_docs.push((doc_id, matrix));
-        self.doc_vocab_ids.retain(|(id, _)| *id != doc_id);
         self.doc_vocab_ids.push((doc_id, vocab_ids));
 
         self.rebuild_tac();
@@ -155,19 +201,28 @@ impl Engine for TachiomEngine {
         for (&qvid, query_row) in query_vocab_ids.iter().zip(query_matrix.rows.iter()) {
             if let Some(type_centroids) = self.centroids_by_type.get(&qvid) {
                 if !type_centroids.is_empty() {
-                    let best_ci = type_centroids
-                        .iter()
-                        .enumerate()
+                    // Probe the top half of centroids (at least 1) for this token type.
+                    let nprobe = (type_centroids.len() / 2).max(1);
+                    let mut scored: Vec<(usize, f32)> = type_centroids.iter().enumerate()
                         .map(|(ci, c)| (ci, cosine(query_row, c)))
-                        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-                        .map(|(ci, _)| ci)
-                        .unwrap_or(0);
-                    for (doc_id, vocab_ids) in &self.doc_vocab_ids {
-                        if vocab_ids.contains(&qvid) {
-                            candidate_doc_ids.insert(*doc_id);
+                        .collect();
+                    scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                    let top_cis: Vec<usize> = scored.iter().take(nprobe).map(|(ci, _)| *ci).collect();
+
+                    // Include docs whose tokens of this type are assigned to a probed centroid.
+                    if let Some(entries) = self.doc_centroid_map.get(&qvid) {
+                        for &(doc_id, ci) in entries {
+                            if top_cis.contains(&ci) {
+                                candidate_doc_ids.insert(doc_id);
+                            }
+                        }
+                    } else {
+                        for (doc_id, vocab_ids) in &self.doc_vocab_ids {
+                            if vocab_ids.contains(&qvid) {
+                                candidate_doc_ids.insert(*doc_id);
+                            }
                         }
                     }
-                    let _ = best_ci;
                 }
             } else {
                 for (doc_id, _) in &self.colbert_docs {
@@ -180,14 +235,21 @@ impl Engine for TachiomEngine {
         let candidates: Vec<u32> = candidate_doc_ids.into_iter().collect();
         let refine_start = std::time::Instant::now();
 
+        // Compute IDF weights for this query.
+        let n_docs = self.colbert_docs.len().max(1) as f32;
+        let idf: Vec<f32> = query_vocab_ids.iter().map(|vid| {
+            let df = *self.token_doc_freq.get(vid).unwrap_or(&0) as f32;
+            (n_docs / (1.0 + df)).ln() + 1.0
+        }).collect();
+
         let mut scores: Vec<(u32, f32)> = if candidates.is_empty() {
             self.colbert_docs.iter()
-                .map(|(doc_id, doc_matrix)| (*doc_id, maxsim(&query_matrix, doc_matrix)))
+                .map(|(doc_id, doc_matrix)| (*doc_id, maxsim_weighted(&query_matrix, &idf, doc_matrix)))
                 .collect()
         } else {
             self.colbert_docs.iter()
                 .filter(|(doc_id, _)| candidates.contains(doc_id))
-                .map(|(doc_id, doc_matrix)| (*doc_id, maxsim(&query_matrix, doc_matrix)))
+                .map(|(doc_id, doc_matrix)| (*doc_id, maxsim_weighted(&query_matrix, &idf, doc_matrix)))
                 .collect()
         };
 

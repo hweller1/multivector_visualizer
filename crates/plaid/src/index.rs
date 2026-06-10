@@ -1,6 +1,6 @@
 use super::centroid::CentroidPruner;
 use colbert::index::ColBertIndex;
-use colbert::maxsim::maxsim;
+use colbert::maxsim::maxsim_weighted;
 use common::{
     token::{TokenMatrix, TOKEN_DIM},
     trace::{TraceEvent, TraceLog},
@@ -105,13 +105,14 @@ impl PlaidIndex {
             pruned_count,
         });
 
-        // Run MaxSim only on candidates
+        let idf = self.colbert.idf_weights(&query_matrix.tokens);
+        // IDF-weighted MaxSim on candidates only
         let mut scores: Vec<(u32, f32)> = self
             .colbert
             .docs
             .iter()
             .filter(|(doc_id, _)| candidates.contains(doc_id))
-            .map(|(doc_id, doc_matrix)| (*doc_id, maxsim(query_matrix, doc_matrix)))
+            .map(|(doc_id, doc_matrix)| (*doc_id, maxsim_weighted(query_matrix, &idf, doc_matrix)))
             .collect();
 
         scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));

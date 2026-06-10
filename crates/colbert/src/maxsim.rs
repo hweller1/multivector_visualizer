@@ -22,6 +22,26 @@ pub fn maxsim(query: &TokenMatrix, doc: &TokenMatrix) -> f32 {
         .sum()
 }
 
+/// IDF-weighted MaxSim: Σ_i w[i] * max_j cosine(Q[i], D[j])
+/// Rare tokens (high IDF weight) contribute more; stopwords are down-weighted.
+pub fn maxsim_weighted(query: &TokenMatrix, weights: &[f32], doc: &TokenMatrix) -> f32 {
+    if query.rows.is_empty() || doc.rows.is_empty() {
+        return 0.0;
+    }
+    query
+        .rows
+        .iter()
+        .zip(weights.iter().chain(std::iter::repeat(&1.0f32)))
+        .map(|(q_tok, &w)| {
+            let best = doc.rows
+                .iter()
+                .map(|d_tok| cosine(q_tok, d_tok))
+                .fold(f32::NEG_INFINITY, f32::max);
+            w * best
+        })
+        .sum()
+}
+
 /// Returns (score, full matrix rows×cols, row_maxima) for MaxSimMatrix trace event.
 pub fn maxsim_with_matrix(
     query: &TokenMatrix,

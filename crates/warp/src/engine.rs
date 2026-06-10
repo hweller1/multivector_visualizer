@@ -74,14 +74,14 @@ impl Engine for WarpEngine {
             log.events.push(event);
         }
 
-        // Step 3: MaxSim refine on gathered candidates
+        let idf = self.colbert_index.idf_weights(&query_matrix.tokens);
+        // IDF-weighted MaxSim refine on gathered candidates
         let mut scores: Vec<(u32, f32)> = if candidates.is_empty() {
-            // If XTR pruned everything, fall back to all docs
             self.colbert_index
                 .docs
                 .iter()
                 .map(|(doc_id, doc_matrix)| {
-                    (*doc_id, colbert::maxsim::maxsim(&query_matrix, doc_matrix))
+                    (*doc_id, colbert::maxsim::maxsim_weighted(&query_matrix, &idf, doc_matrix))
                 })
                 .collect()
         } else {
@@ -90,7 +90,7 @@ impl Engine for WarpEngine {
                 .iter()
                 .filter(|(doc_id, _)| candidates.contains(doc_id))
                 .map(|(doc_id, doc_matrix)| {
-                    (*doc_id, colbert::maxsim::maxsim(&query_matrix, doc_matrix))
+                    (*doc_id, colbert::maxsim::maxsim_weighted(&query_matrix, &idf, doc_matrix))
                 })
                 .collect()
         };

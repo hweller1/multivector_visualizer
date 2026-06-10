@@ -51,7 +51,8 @@ impl Engine for PlaidEngine {
         let (query_matrix, _vocab_ids) = self.colbert_engine.encoder.borrow_mut().encode(text)?;
         let total_docs = self.colbert_engine.index.docs.len();
         if let Some(plaid) = &self.plaid_index {
-            let nprobe = (self.num_centroids / 2).max(1);
+            // Probe 75% of centroids — more recall at acceptable cost vs. the old 50%.
+            let nprobe = ((self.num_centroids * 3) / 4).max(2);
             let (results, mut log) = plaid.search(&query_matrix, top_k, nprobe);
             // docs_scored = candidate count from CandidateExpand event
             let docs_scored = log.events.iter().find_map(|(_, e)| {

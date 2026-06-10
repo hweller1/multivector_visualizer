@@ -283,27 +283,45 @@ fn embed_text_tokens(
     text: &str,
     wt: &WordPieceTokenizer,
     proj: &mut RandomProjection,
-) -> Vec<[f32; TOKEN_DIM]> {
+) -> (Vec<u32>, Vec<[f32; TOKEN_DIM]>) {
     match wt.inner.encode(text, false) {
         Ok(enc) => {
-            let ids = enc.get_ids();
+            let ids: Vec<u32> = enc.get_ids().to_vec();
             let tokens: Vec<String> = enc.get_tokens().to_vec();
-            proj.embed(ids, &tokens).rows
+            let embs = proj.embed(&ids, &tokens).rows;
+            (ids, embs)
         }
-        Err(_) => vec![],
+        Err(_) => (vec![], vec![]),
     }
+}
+
+fn build_doc_freq(doc_tok_ids: &[(u32, Vec<u32>)]) -> HashMap<u32, usize> {
+    let mut freq: HashMap<u32, usize> = HashMap::new();
+    for (_, ids) in doc_tok_ids {
+        let unique: std::collections::HashSet<u32> = ids.iter().copied().collect();
+        for id in unique { *freq.entry(id).or_insert(0) += 1; }
+    }
+    freq
+}
+
+fn idf_weights_for(query_ids: &[u32], doc_freq: &HashMap<u32, usize>, n_docs: usize) -> Vec<f32> {
+    let n = n_docs.max(1) as f32;
+    query_ids.iter().map(|id| {
+        let df = *doc_freq.get(id).unwrap_or(&0) as f32;
+        (n / (1.0 + df)).ln() + 1.0
+    }).collect()
+}
+
+fn maxsim_idf(q: &[[f32; TOKEN_DIM]], w: &[f32], d: &[[f32; TOKEN_DIM]]) -> f32 {
+    q.iter().zip(w.iter().chain(std::iter::repeat(&1.0f32)))
+        .map(|(qi, &wi)| wi * d.iter().map(|di| dot128(qi, di)).fold(f32::NEG_INFINITY, f32::max))
+        .sum()
 }
 
 // ─── vector math ──────────────────────────────────────────────────────────────
 
 fn dot128(a: &[f32; TOKEN_DIM], b: &[f32; TOKEN_DIM]) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
-}
-
-fn maxsim(q: &[[f32; TOKEN_DIM]], d: &[[f32; TOKEN_DIM]]) -> f32 {
-    q.iter()
-        .map(|qi| d.iter().map(|di| dot128(qi, di)).fold(f32::NEG_INFINITY, f32::max))
-        .sum()
 }
 
 fn recall_at_k(results: &[(u32, f32)], gt: &HashSet<u32>, k: usize) -> f64 {
@@ -450,14 +468,17 @@ fn bench_hnsw(
 fn bench_colbert(
     doc_toks: &[(u32, Vec<[f32; TOKEN_DIM]>)],
     query_toks: &[Vec<[f32; TOKEN_DIM]>],
+    query_ids: &[Vec<u32>],
+    doc_freq: &HashMap<u32, usize>,
     gt: &[HashSet<u32>],
 ) -> EngineResult {
     let n = doc_toks.len();
     let mut pts = vec![];
     let mut tot_r = 0.0f64;
-    for (qtoks, gt_set) in query_toks.iter().zip(gt) {
+    for ((qtoks, qids), gt_set) in query_toks.iter().zip(query_ids.iter()).zip(gt) {
+        let idf = idf_weights_for(qids, doc_freq, n);
         let mut scored: Vec<(u32, f32)> = doc_toks.iter()
-            .map(|(id, dtoks)| (*id, maxsim(qtoks, dtoks)))
+            .map(|(id, dtoks)| (*id, maxsim_idf(qtoks, &idf, dtoks)))
             .collect();
         scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         tot_r += recall_at_k(&scored, gt_set, K_EVAL);
@@ -476,6 +497,8 @@ fn bench_colbert(
 fn bench_plaid(
     doc_toks: &[(u32, Vec<[f32; TOKEN_DIM]>)],
     query_toks: &[Vec<[f32; TOKEN_DIM]>],
+    query_ids: &[Vec<u32>],
+    doc_freq: &HashMap<u32, usize>,
     gt: &[HashSet<u32>],
     rng: &mut SmallRng,
 ) -> EngineResult {
@@ -487,13 +510,14 @@ fn bench_plaid(
     for &np in &probes {
         if np > idx.centers.len() { break; }
         let (mut tot_f, mut tot_r) = (0.0f64, 0.0f64);
-        for (qtoks, gt_set) in query_toks.iter().zip(gt) {
+        for ((qtoks, qids), gt_set) in query_toks.iter().zip(query_ids.iter()).zip(gt) {
+            let idf = idf_weights_for(qids, doc_freq, n);
             let cands = idx.probe(qtoks, np);
             tot_f += cands.len() as f64 / n as f64;
             let cands = if cands.is_empty() { std::iter::once(0u32).collect() } else { cands };
             let mut scored: Vec<(u32, f32)> = doc_toks.iter()
                 .filter(|(id, _)| cands.contains(id))
-                .map(|(id, dtoks)| (*id, maxsim(qtoks, dtoks)))
+                .map(|(id, dtoks)| (*id, maxsim_idf(qtoks, &idf, dtoks)))
                 .collect();
             scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
             tot_r += recall_at_k(&scored, gt_set, K_EVAL);
@@ -514,6 +538,8 @@ fn bench_plaid(
 fn bench_warp(
     doc_toks: &[(u32, Vec<[f32; TOKEN_DIM]>)],
     query_toks: &[Vec<[f32; TOKEN_DIM]>],
+    query_ids: &[Vec<u32>],
+    doc_freq: &HashMap<u32, usize>,
     gt: &[HashSet<u32>],
 ) -> EngineResult {
     let n = doc_toks.len();
@@ -521,7 +547,8 @@ fn bench_warp(
     let mut pts = vec![];
     for &t in &thresholds {
         let (mut tot_f, mut tot_r) = (0.0f64, 0.0f64);
-        for (qtoks, gt_set) in query_toks.iter().zip(gt) {
+        for ((qtoks, qids), gt_set) in query_toks.iter().zip(query_ids.iter()).zip(gt) {
+            let idf = idf_weights_for(qids, doc_freq, n);
             let cands: HashSet<u32> = doc_toks.iter()
                 .filter_map(|(id, dtoks)| {
                     let mx = dtoks.iter()
@@ -534,7 +561,7 @@ fn bench_warp(
             let cands = if cands.is_empty() { std::iter::once(0u32).collect() } else { cands };
             let mut scored: Vec<(u32, f32)> = doc_toks.iter()
                 .filter(|(id, _)| cands.contains(id))
-                .map(|(id, dtoks)| (*id, maxsim(qtoks, dtoks)))
+                .map(|(id, dtoks)| (*id, maxsim_idf(qtoks, &idf, dtoks)))
                 .collect();
             scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
             tot_r += recall_at_k(&scored, gt_set, K_EVAL);
@@ -558,6 +585,8 @@ fn bench_warp(
 fn bench_tachiom(
     doc_toks: &[(u32, Vec<[f32; TOKEN_DIM]>)],
     query_toks: &[Vec<[f32; TOKEN_DIM]>],
+    query_ids: &[Vec<u32>],
+    doc_freq: &HashMap<u32, usize>,
     gt: &[HashSet<u32>],
     rng: &mut SmallRng,
     n_categories: usize,
@@ -577,7 +606,8 @@ fn bench_tachiom(
     let mut pts = vec![];
     for &np in &probes {
         let (mut tot_f, mut tot_r) = (0.0f64, 0.0f64);
-        for (qtoks, gt_set) in query_toks.iter().zip(gt) {
+        for ((qtoks, qids), gt_set) in query_toks.iter().zip(query_ids.iter()).zip(gt) {
+            let idf = idf_weights_for(qids, doc_freq, n);
             let mut cands: HashSet<u32> = HashSet::new();
             for qt in qtoks {
                 // Route to the category whose centroid is nearest this query token
@@ -598,7 +628,7 @@ fn bench_tachiom(
             let cands = if cands.is_empty() { std::iter::once(0u32).collect() } else { cands };
             let mut scored: Vec<(u32, f32)> = doc_toks.iter()
                 .filter(|(id, _)| cands.contains(id))
-                .map(|(id, dtoks)| (*id, maxsim(qtoks, dtoks)))
+                .map(|(id, dtoks)| (*id, maxsim_idf(qtoks, &idf, dtoks)))
                 .collect();
             scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
             tot_r += recall_at_k(&scored, gt_set, K_EVAL);
@@ -889,12 +919,17 @@ pub async fn run_gtbench(vocab_path: &Path) -> Result<()> {
     let _ = std::io::Write::flush(&mut std::io::stdout());
     let tokenizer = WordPieceTokenizer::from_vocab(vocab_path)?;
     let mut proj = RandomProjection::new(0x0123456789ABCDEFu64);
-    let doc_toks: Vec<(u32, Vec<[f32; TOKEN_DIM]>)> = GT_CORPUS.iter()
-        .map(|(id, text)| (*id, embed_text_tokens(text, &tokenizer, &mut proj)))
+    let raw_doc_toks: Vec<(u32, Vec<u32>, Vec<[f32; TOKEN_DIM]>)> = GT_CORPUS.iter()
+        .map(|(id, text)| { let (ids, embs) = embed_text_tokens(text, &tokenizer, &mut proj); (*id, ids, embs) })
         .collect();
-    let query_toks: Vec<Vec<[f32; TOKEN_DIM]>> = GT_QUERIES.iter()
+    let doc_tok_ids: Vec<(u32, Vec<u32>)> = raw_doc_toks.iter().map(|(id, ids, _)| (*id, ids.clone())).collect();
+    let doc_toks: Vec<(u32, Vec<[f32; TOKEN_DIM]>)> = raw_doc_toks.into_iter().map(|(id, _, embs)| (id, embs)).collect();
+    let raw_query_toks: Vec<(Vec<u32>, Vec<[f32; TOKEN_DIM]>)> = GT_QUERIES.iter()
         .map(|q| embed_text_tokens(q, &tokenizer, &mut proj))
         .collect();
+    let query_tok_ids: Vec<Vec<u32>> = raw_query_toks.iter().map(|(ids, _)| ids.clone()).collect();
+    let query_toks: Vec<Vec<[f32; TOKEN_DIM]>> = raw_query_toks.into_iter().map(|(_, embs)| embs).collect();
+    let doc_freq = build_doc_freq(&doc_tok_ids);
     println!("ok");
 
     let doc_cats = doc_category_map();
@@ -910,22 +945,22 @@ pub async fn run_gtbench(vocab_path: &Path) -> Result<()> {
 
     print!("    ColBERT…    ");
     let _ = std::io::Write::flush(&mut std::io::stdout());
-    let colbert_res = bench_colbert(&doc_toks, &query_toks, &gt_sets);
+    let colbert_res = bench_colbert(&doc_toks, &query_toks, &query_tok_ids, &doc_freq, &gt_sets);
     println!("{} points", colbert_res.pts.len());
 
     print!("    PLAID…      ");
     let _ = std::io::Write::flush(&mut std::io::stdout());
-    let plaid_res = bench_plaid(&doc_toks, &query_toks, &gt_sets, &mut rng);
+    let plaid_res = bench_plaid(&doc_toks, &query_toks, &query_tok_ids, &doc_freq, &gt_sets, &mut rng);
     println!("{} points", plaid_res.pts.len());
 
     print!("    WARP…       ");
     let _ = std::io::Write::flush(&mut std::io::stdout());
-    let warp_res = bench_warp(&doc_toks, &query_toks, &gt_sets);
+    let warp_res = bench_warp(&doc_toks, &query_toks, &query_tok_ids, &doc_freq, &gt_sets);
     println!("{} points", warp_res.pts.len());
 
     print!("    TACHIOM…    ");
     let _ = std::io::Write::flush(&mut std::io::stdout());
-    let tac_res = bench_tachiom(&doc_toks, &query_toks, &gt_sets, &mut rng, 10, &doc_cats);
+    let tac_res = bench_tachiom(&doc_toks, &query_toks, &query_tok_ids, &doc_freq, &gt_sets, &mut rng, 10, &doc_cats);
     println!("{} points", tac_res.pts.len());
 
     let all_results = vec![hnsw_res, colbert_res, plaid_res, warp_res, tac_res];
