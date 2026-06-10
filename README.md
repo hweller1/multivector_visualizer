@@ -254,19 +254,19 @@ Tests engines against **semantically judged relevance** using Claude Haiku as an
 4. Evaluates Recall@10 for each engine against those LLM-judged labels
 
 ```bash
-# Requires VOYAGE_API_KEY + ANTHROPIC_API_KEY in .env
+# Requires VOYAGE_API_KEY + GROVE_API_KEY in .env
 cargo run --release -- gt-bench
 ```
 
 Outputs to `plots/gt_recall.svg`.
 
-When `ANTHROPIC_API_KEY` is absent, a category-membership heuristic is used (20 river docs = relevant for river queries, etc.) with a printed warning.
+When `GROVE_API_KEY` is absent, a category-membership heuristic is used (20 river docs = relevant for river queries, etc.) with a printed warning.
 
 ### GT Benchmark Results
 
 ![GT Benchmark — Recall@10 by engine](plots/gt_recall.svg)
 
-*Recall@10 against LLM-judged ground truth labels (100-doc corpus, 10 queries, heuristic fallback labels when `ANTHROPIC_API_KEY` absent).*
+*Recall@10 against LLM-judged ground truth labels (100-doc corpus, 10 queries, heuristic fallback labels when `GROVE_API_KEY` absent).*
 
 | Engine | Recall@10 | Candidate fraction |
 |---|---|---|
@@ -278,7 +278,7 @@ When `ANTHROPIC_API_KEY` is absent, a category-membership heuristic is used (20 
 
 **Why HNSW leads here:** The GT corpus is topic-separated, and Voyage-4-large produces semantically rich embeddings that align well with topic-level relevance. HNSW's sentence vectors work when the signal is at the document level. The bank disambiguation failure mode requires intra-document token-level differentiation — not tested by the heuristic GT labels.
 
-**To see ColBERT's advantage:** run `cargo run --release -- demo colbert` with the bank disambiguation scenario, or run `gt-bench` with a real `ANTHROPIC_API_KEY` to get LLM-judged labels that include intra-category polysemy.
+**To see ColBERT's advantage:** run `cargo run --release -- demo colbert` with the bank disambiguation scenario, or run `gt-bench` with a real `GROVE_API_KEY` to get LLM-judged labels that include intra-category polysemy.
 
 ---
 
@@ -307,7 +307,7 @@ vocab/        WordPiece vocabulary for tokenization
 |---|---|---|
 | `VOYAGE_API_KEY` | Yes (live demos) | Voyage AI embedding API |
 | `MONGODB_URI` | Yes (live demos) | Atlas vector search backend |
-| `ANTHROPIC_API_KEY` | No | LLM-as-judge ground-truth labels for `gt-bench` |
+| `GROVE_API_KEY` | No | LLM-as-judge ground-truth labels for `gt-bench` |
 | `MULTIVECTOR_VOCAB` | No | Override path to `wordpiece_vocab.txt` |
 
 The `.env` file at the workspace root is loaded automatically via `dotenvy`. It is in `.gitignore` and must never be committed.

@@ -17,7 +17,7 @@ Each engine is a working implementation runnable via `cargo run -- demo <engine>
 ```
 VOYAGE_API_KEY=...   # MongoDB-proxied Voyage AI (https://ai.mongodb.com/v1)
 MONGODB_URI=...      # Atlas cluster
-ANTHROPIC_API_KEY=...  # optional — needed for gt-bench LLM judging
+GROVE_API_KEY=...  # optional — needed for gt-bench LLM judging
 ```
 
 `.env` is in `.gitignore`. Never `git add .env`, `git add -A`, or `git add .`. Stage files explicitly by name.
@@ -54,7 +54,7 @@ The ColBERT/PLAID/WARP/TACHIOM engines use `RandomProjection`: a **deterministic
 - ef_vals for HNSW sweep extend to 5000 (50% of 10K, ~5% of 100K) to prove plateau
 
 **gt-bench** (real text, N=100):
-- With `ANTHROPIC_API_KEY`: calls `claude-haiku-4-5-20251001` to judge all 100 docs per query
+- With `GROVE_API_KEY`: calls `claude-haiku-4-5-20251001` to judge all 100 docs per query
 - Without key: falls back to category-membership heuristic (20 river, 20 finance, etc.)
 - Results cached in `cache/llm_gt.json` and `cache/gt_voyage_*.json`
 - HNSW with Voyage: ~0.94 Recall@10 at 10% candidates (heuristic GT); higher with LLM GT
@@ -85,9 +85,11 @@ Uses MongoDB proxy: `https://ai.mongodb.com/v1/embeddings` (not `api.voyageai.co
 
 ## Anthropic API (for gt-bench)
 
+Uses MongoDB's internal Grove gateway (not api.anthropic.com directly):
 ```
-POST https://api.anthropic.com/v1/messages
-Headers: x-api-key: $ANTHROPIC_API_KEY, anthropic-version: 2023-06-01
-Body: {"model": "claude-haiku-4-5-20251001", "max_tokens": 512, "messages": [...]}
+POST https://grove-gateway-prod.azure-api.net/grove-foundry-prod/anthropic/v1/messages
+Headers: api-key: $GROVE_API_KEY, anthropic-version: 2023-06-01
+Body: {"model": "claude-sonnet-4-6", "max_tokens": 512, "messages": [...]}
 Response: {"content": [{"type": "text", "text": "[0, 5, 14]"}]}
 ```
+`GROVE_API_KEY` holds the Grove gateway key (32-char hex), not an Anthropic sk-ant key.

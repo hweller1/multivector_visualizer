@@ -160,7 +160,7 @@ struct AnthropicClient {
 impl AnthropicClient {
     fn from_env() -> Option<Self> {
         let _ = dotenvy::dotenv();
-        let key = std::env::var("ANTHROPIC_API_KEY").ok()?;
+        let key = std::env::var("GROVE_API_KEY").ok()?;
         let key = key.trim().to_string();
         if key.is_empty() { return None; }
         Some(Self { api_key: key, http: reqwest::Client::new() })
@@ -183,14 +183,14 @@ impl AnthropicClient {
         );
 
         let body = serde_json::json!({
-            "model": "claude-haiku-4-5-20251001",
+            "model": "claude-sonnet-4-6",
             "max_tokens": 512,
             "messages": [{"role": "user", "content": prompt}]
         });
 
         let resp = self.http
-            .post("https://api.anthropic.com/v1/messages")
-            .header("x-api-key", &self.api_key)
+            .post("https://grove-gateway-prod.azure-api.net/grove-foundry-prod/anthropic/v1/messages")
+            .header("api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
             .json(&body)
             .send()
@@ -784,8 +784,8 @@ pub async fn run_gtbench(vocab_path: &Path) -> Result<()> {
                 println!("  [llm] cached GT labels → {GT_CACHE}");
             }
             None => {
-                eprintln!("  [warn] ANTHROPIC_API_KEY not set — using heuristic topic labels");
-                eprintln!("         Set ANTHROPIC_API_KEY in .env for LLM-judged ground truth.");
+                eprintln!("  [warn] GROVE_API_KEY not set — using heuristic topic labels");
+                eprintln!("         Set GROVE_API_KEY in .env for LLM-judged ground truth.");
                 // Fallback: use category membership as relevance
                 let cat_map = doc_category_map();
                 let query_cats: &[usize] = &[0, 1, 1, 0, 2, 3, 4, 5, 6, 7];
