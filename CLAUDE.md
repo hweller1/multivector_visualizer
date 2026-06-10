@@ -17,7 +17,8 @@ Each engine is a working implementation runnable via `cargo run -- demo <engine>
 ```
 VOYAGE_API_KEY=...   # MongoDB-proxied Voyage AI (https://ai.mongodb.com/v1)
 MONGODB_URI=...      # Atlas cluster
-GROVE_API_KEY=...  # optional — needed for gt-bench LLM judging
+GROVE_API_KEY=...    # optional — needed for gt-bench LLM judging
+JINA_API_KEY=...     # optional — Jina ColBERT v2 per-token embeddings for token engines
 ```
 
 `.env` is in `.gitignore`. Never `git add .env`, `git add -A`, or `git add .`. Stage files explicitly by name.
@@ -35,14 +36,17 @@ cargo run --release -- gt-bench     # LLM-judged ground truth benchmark (plots/)
 ## Architecture
 
 - `crates/common/` — `TraceLog`, `OpTiming`, `RandomProjection` (token_id → 128-dim), `WordPieceTokenizer`, corpus
-- `crates/colbert/src/encoder.rs` — `ColBertEncoder` using `RandomProjection` (deterministic hash, NOT a learned model)
+- `crates/colbert/src/encoder.rs` — `ColBertEncoder`: auto-loads Jina ColBERT cache on construction; falls back to `RandomProjection` if no cache
+- `crates/colbert/src/jina.rs` — `JinaColBertClient`: fetches per-token 128-dim embeddings from `https://api.jina.ai/v1/embeddings`, caches to `cache/jina_colbert_embeddings.json`
 - `crates/hnsw/src/voyage.rs` — `VoyageClient` calls `https://ai.mongodb.com/v1/embeddings`, caches to `cache/voyage_*.json`
-- `crates/cli/src/tradeoffbench.rs` — synthetic 128-dim benchmark (HNSW + PLAID + WARP + TACHIOM)
-- `crates/cli/src/gtbench.rs` — real-text 100-doc benchmark with Anthropic judge + Voyage HNSW embeddings
+- `crates/cli/src/tradeoffbench.rs` — synthetic 128-dim benchmark (HNSW + PLAID + WARP + TACHIOM), uses RandomProjection (no Jina — N=100K would be too expensive)
+- `crates/cli/src/gtbench.rs` — real-text 100-doc benchmark with Anthropic judge + Voyage HNSW + Jina token embeddings
 
-## Per-token embeddings are random projections
+## Per-token embeddings
 
-The ColBERT/PLAID/WARP/TACHIOM engines use `RandomProjection`: a **deterministic hash** from WordPiece vocab_id → 128-dim unit vector. This is NOT a learned semantic embedding. The word "bank" always maps to the same vector in every document. Disambiguation works through multi-token MaxSim (river+bank vs account+bank), not semantic meaning. HNSW uses real Voyage sentence embeddings.
+**With JINA_API_KEY** (recommended): `ColBertEncoder` uses Jina ColBERT v2 per-token embeddings (128-dim, learned, semantically meaningful). "bank" in a river context gets a different representation than "bank" in a finance context because the model is trained with cross-attention. Enables apples-to-apples comparison with HNSW.
+
+**Without JINA_API_KEY** (fallback): `RandomProjection` — a **deterministic hash** from WordPiece vocab_id → 128-dim unit vector. NOT a learned model. "bank" always maps to the same vector in every document. Disambiguation only works through multi-token MaxSim patterns.
 
 ## Benchmark notes
 
@@ -53,12 +57,15 @@ The ColBERT/PLAID/WARP/TACHIOM engines use `RandomProjection`: a **deterministic
 - PLAID: ~0.833 ceiling at 5% candidates (centroid approximation error)
 - ef_vals for HNSW sweep extend to 5000 (50% of 10K, ~5% of 100K) to prove plateau
 
-**gt-bench** (real text, N=100):
-- With `GROVE_API_KEY`: calls `claude-haiku-4-5-20251001` to judge all 100 docs per query
+**gt-bench** (real text, N=100, Jina ColBERT per-token embeddings):
+- With `GROVE_API_KEY`: calls `claude-sonnet-4-6` via Grove gateway to judge all 100 docs per query
 - Without key: falls back to category-membership heuristic (20 river, 20 finance, etc.)
-- Results cached in `cache/llm_gt.json` and `cache/gt_voyage_*.json`
-- HNSW with Voyage: ~0.94 Recall@10 at 10% candidates (heuristic GT); higher with LLM GT
-- ColBERT full scan: ~0.70 (lexical mismatch vs topic GT)
+- With `JINA_API_KEY`: token engines use Jina ColBERT v2 128-dim per-token embeddings (cached in `cache/jina_colbert_embeddings.json`)
+- Results cached in `cache/llm_gt.json`, `cache/gt_voyage_*.json`, `cache/jina_colbert_embeddings.json`
+- HNSW (Voyage): 0.955 Recall@10
+- ColBERT full scan (Jina): 0.941 — competitive with HNSW, true apples-to-apples
+- TACHIOM (Jina, 10% candidates): 0.954 — category routing achieves near-HNSW recall at 10× speedup
+- PLAID/WARP (Jina, 50% candidates): 0.941
 - HNSW ef sweep: always returns K_EVAL=10 results, varies ef as numCandidates; frac = ef/n
 
 ## Noise calibration for synthetic data
@@ -82,6 +89,18 @@ let results: Vec<Neighbour> = h.search(query, nb_res, ef_arg);
 ## Voyage API endpoint
 
 Uses MongoDB proxy: `https://ai.mongodb.com/v1/embeddings` (not `api.voyageai.com`). Bearer auth with `VOYAGE_API_KEY`. Default model: `voyage-4-large` (1024-dim). Override with `VOYAGE_MODEL` env var.
+
+## Jina ColBERT API (for token engines)
+
+```
+POST https://api.jina.ai/v1/embeddings
+Headers: Authorization: Bearer $JINA_API_KEY
+Body: {"model": "jina-colbert-v2", "input": ["text"], "output_format": "token_embeddings", "truncate_dim": 128}
+Response: {"data": [{"embeddings": [[...128 floats per token...], ...]}]}
+```
+Cache path: `cache/jina_colbert_embeddings.json` (keyed by text string).
+`ColBertEncoder::new()` auto-loads this cache; engines pick up Jina embeddings transparently.
+Demo/repl: `warm_jina_for_corpus()` in main.rs prefetches SHARED_CORPUS before engine construction.
 
 ## Anthropic API (for gt-bench)
 

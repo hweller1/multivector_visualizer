@@ -4,13 +4,14 @@
 //!          (river bank, financial bank, construction crane, bird crane,
 //!           elephant trunk, car trunk, physics light, fashion lightweight).
 //! Engines: HNSW (Voyage sentence embeddings), ColBERT, PLAID, WARP, TACHIOM
-//!          (all multivector engines use WordPiece + RandomProjection tokens).
-//! GT:      Claude Haiku judges which docs are relevant to each query.
+//!          (all multivector engines use Jina ColBERT v2 per-token embeddings).
+//! GT:      claude-sonnet-4-6 judges which docs are relevant to each query.
 //!          Labels cached in cache/llm_gt.json.
 //! Plots:   plots/gt_recall.svg
 
 use anyhow::{anyhow, Result};
-use common::{RandomProjection, WordPieceTokenizer, TOKEN_DIM};
+use colbert::{encoder::ColBertEncoder, JinaColBertClient};
+use common::TOKEN_DIM;
 use hnsw_rs::prelude::*;
 #[allow(unused_imports)]
 use std::f32;
@@ -281,16 +282,10 @@ fn save_emb_cache(path: &str, embs: &HashMap<u32, Vec<f32>>) -> Result<()> {
 
 fn embed_text_tokens(
     text: &str,
-    wt: &WordPieceTokenizer,
-    proj: &mut RandomProjection,
+    encoder: &mut ColBertEncoder,
 ) -> (Vec<u32>, Vec<[f32; TOKEN_DIM]>) {
-    match wt.inner.encode(text, false) {
-        Ok(enc) => {
-            let ids: Vec<u32> = enc.get_ids().to_vec();
-            let tokens: Vec<String> = enc.get_tokens().to_vec();
-            let embs = proj.embed(&ids, &tokens).rows;
-            (ids, embs)
-        }
+    match encoder.encode(text) {
+        Ok((matrix, ids)) => (ids, matrix.rows),
         Err(_) => (vec![], vec![]),
     }
 }
@@ -787,8 +782,8 @@ pub async fn run_gtbench(vocab_path: &Path) -> Result<()> {
     println!("{CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}");
     println!("{BOLD}  Ground-Truth Benchmark (LLM-as-Judge){RESET}");
     println!("{DIM}  100 real-text docs · 10 queries · All 5 engines");
-    println!("  GT labels: Claude Haiku relevance judgments (cached in cache/llm_gt.json)");
-    println!("  HNSW: Voyage sentence embeddings · Others: WordPiece + RandomProjection{RESET}");
+    println!("  GT labels: LLM-as-judge relevance labels (cached in cache/llm_gt.json)");
+    println!("  HNSW: Voyage sentence embeddings · Token engines: Jina ColBERT per-token{RESET}");
     println!("{CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}");
     println!();
 
@@ -915,22 +910,37 @@ pub async fn run_gtbench(vocab_path: &Path) -> Result<()> {
         .collect();
 
     // ── 3. Token embeddings for multivector engines ──────────────────────────
-    print!("  [tokens] tokenizing + random-projecting {} docs… ", GT_CORPUS.len());
+    // Preload Jina ColBERT learned token embeddings for all corpus + query texts.
+    // Falls back to RandomProjection if JINA_API_KEY is absent.
+    let all_texts: Vec<&str> = GT_CORPUS.iter().map(|(_, t)| *t)
+        .chain(GT_QUERIES.iter().copied()).collect();
+    match JinaColBertClient::from_env() {
+        Some(client) => {
+            client.refresh_cache(&all_texts).await?;
+            println!("  [jina] token embeddings ready ({} texts)", all_texts.len());
+        }
+        None => {
+            eprintln!("  [warn] JINA_API_KEY not set — using RandomProjection for token engines.");
+            eprintln!("         Set JINA_API_KEY in .env for learned per-token embeddings.");
+        }
+    }
+
+    print!("  [tokens] encoding {} docs… ", GT_CORPUS.len());
     let _ = std::io::Write::flush(&mut std::io::stdout());
-    let tokenizer = WordPieceTokenizer::from_vocab(vocab_path)?;
-    let mut proj = RandomProjection::new(0x0123456789ABCDEFu64);
+    let mut encoder = ColBertEncoder::new(vocab_path, 0x0123456789ABCDEFu64)?;
     let raw_doc_toks: Vec<(u32, Vec<u32>, Vec<[f32; TOKEN_DIM]>)> = GT_CORPUS.iter()
-        .map(|(id, text)| { let (ids, embs) = embed_text_tokens(text, &tokenizer, &mut proj); (*id, ids, embs) })
+        .map(|(id, text)| { let (ids, embs) = embed_text_tokens(text, &mut encoder); (*id, ids, embs) })
         .collect();
     let doc_tok_ids: Vec<(u32, Vec<u32>)> = raw_doc_toks.iter().map(|(id, ids, _)| (*id, ids.clone())).collect();
     let doc_toks: Vec<(u32, Vec<[f32; TOKEN_DIM]>)> = raw_doc_toks.into_iter().map(|(id, _, embs)| (id, embs)).collect();
     let raw_query_toks: Vec<(Vec<u32>, Vec<[f32; TOKEN_DIM]>)> = GT_QUERIES.iter()
-        .map(|q| embed_text_tokens(q, &tokenizer, &mut proj))
+        .map(|q| embed_text_tokens(q, &mut encoder))
         .collect();
     let query_tok_ids: Vec<Vec<u32>> = raw_query_toks.iter().map(|(ids, _)| ids.clone()).collect();
     let query_toks: Vec<Vec<[f32; TOKEN_DIM]>> = raw_query_toks.into_iter().map(|(_, embs)| embs).collect();
     let doc_freq = build_doc_freq(&doc_tok_ids);
-    println!("ok");
+    let embed_source = if encoder.is_using_jina() { "Jina ColBERT" } else { "RandomProjection" };
+    println!("ok ({embed_source})");
 
     let doc_cats = doc_category_map();
 
@@ -977,8 +987,8 @@ pub async fn run_gtbench(vocab_path: &Path) -> Result<()> {
         &format!("Recall@{K_EVAL} vs LLM Ground Truth  (N=100 real-text docs)"),
     )?;
     println!("  {BOLD}→ {path}{RESET}  (open with: open {path})");
-    println!("{DIM}  LLM judge: Claude Haiku · HNSW: Voyage sentence embeddings");
-    println!("  Multivector engines: WordPiece + RandomProjection tokens{RESET}");
+    println!("{DIM}  LLM judge: claude-sonnet-4-6 · HNSW: Voyage sentence embeddings");
+    println!("  Token engines: Jina ColBERT v2 per-token embeddings (128-dim){RESET}");
     println!();
 
     Ok(())

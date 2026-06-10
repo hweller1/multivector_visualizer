@@ -7,13 +7,23 @@ mod scalebench;
 mod tradeoffbench;
 
 use clap::Parser;
-use colbert::ColBertEngine;
+use colbert::{ColBertEngine, JinaColBertClient};
 use commands::{BenchTarget, Cli, EngineCmd, TopCommand};
-use common::{SuggestionMode, VizRepl};
+use common::{corpus::SHARED_CORPUS, SuggestionMode, VizRepl};
 use hnsw::HnswEngine;
 use plaid::PlaidEngine;
 use tachiom::TachiomEngine;
 use warp::WarpEngine;
+
+/// Pre-fetch Jina ColBERT token embeddings for all shared corpus texts so
+/// that demo/repl engines automatically use learned embeddings via the disk cache.
+async fn warm_jina_for_corpus() {
+    let Some(client) = JinaColBertClient::from_env() else { return };
+    let texts: Vec<&str> = SHARED_CORPUS.iter().map(|(_, t)| *t).collect();
+    if let Err(e) = client.refresh_cache(&texts).await {
+        eprintln!("  [jina] cache warm failed: {e}");
+    }
+}
 
 fn vocab_path() -> std::path::PathBuf {
     std::env::var("MULTIVECTOR_VOCAB")
@@ -30,9 +40,11 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
         TopCommand::Demo { name, dry_run } => {
+            warm_jina_for_corpus().await;
             demo::run_demo(&name, dry_run, cli.trace_json).await?;
         }
         TopCommand::Repl { engine } => {
+            warm_jina_for_corpus().await;
             let vp = vocab_path();
             match engine {
                 EngineCmd::Colbert => {
