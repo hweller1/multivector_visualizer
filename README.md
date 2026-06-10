@@ -8,6 +8,8 @@ HNSW ──► ColBERT ──► PLAID ──► WARP ──► TACHIOM
  ANN      MaxSim      pruning   threshold  allocation
 ```
 
+> **Readable version:** [Google Doc](https://docs.google.com/document/d/1vl0dkQ6ZYJhqz8s15JT-Z-kt1DpZoGAoMPCeeIlC-Y4/edit) — styled for easy sharing with collaborators.
+
 ---
 
 ## Prerequisites
