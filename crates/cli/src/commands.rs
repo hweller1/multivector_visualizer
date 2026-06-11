@@ -44,6 +44,11 @@ pub enum TopCommand {
     /// 100 real-text docs, all 5 engines, Voyage embeddings for HNSW.
     /// Requires ANTHROPIC_API_KEY and VOYAGE_API_KEY in .env (cached after first run).
     GtBench,
+    /// Large-scale "needle in a haystack" benchmark.
+    /// 100 real GT docs (Jina ColBERT) buried in a synthetic corpus of N=100K/1M/10M.
+    /// Tests HNSW / PLAID / WARP / TACHIOM with no-filter / category / cat+year modes.
+    /// Generates SVG plots in plots/ directory.  Requires gt-bench cache to exist first.
+    LargeBench,
 }
 
 #[derive(Subcommand)]
