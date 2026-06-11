@@ -282,6 +282,108 @@ When `GROVE_API_KEY` is absent, a category-membership heuristic is used (20 rive
 
 ---
 
+## Large-Scale Needle-in-Haystack Benchmark
+
+Tests how well each engine finds 100 real GT documents buried inside a growing synthetic corpus — 100K, 1M, 10M, and 100M documents — across three filter modes.
+
+```bash
+# Requires gt-bench to have run first (needs cache/llm_gt.json and Jina cache)
+cargo run --release -- large-bench
+```
+
+Outputs to `plots/`:
+```
+plots/large_bench_recall_vs_frac.svg   # Recall@10 vs candidate fraction at N=1M
+plots/large_bench_recall_vs_n.svg      # Recall@10 vs corpus size at 10% candidates
+```
+
+### What the synthetic distractors are
+
+The 99,900–99,999,900 distractor documents are **random 128-dimensional unit vectors** — not real text, not real embeddings. Each distractor has:
+- 3 token vectors drawn uniformly at random from the unit sphere
+- A random category (0–9) and year (2010–2024) for filter metadata
+
+This is important context for interpreting the results. In high dimensions, a random unit vector has an expected dot product of ≈ 0 against any fixed real query embedding. Synthetic docs are effectively **noise** — they never plausibly compete with real GT documents for the top-K positions.
+
+**What this benchmark tests:** whether each engine can find 100 semantically real needles as the volume of structureless noise grows from 100K to 100M. This is a test of *index scaling robustness*, not *semantic discrimination* between similar documents. For the harder problem — distinguishing relevant from near-miss real documents — see the GT Benchmark above.
+
+**At N ≥ 10M:** only 1M synthetic docs are stored in RAM; the denominator for candidate-fraction calculations is extrapolated to the full N. The actual computation and recall are based on the 1M in-RAM sample.
+
+### Filters
+
+Three filter modes are applied to each query at every scale:
+
+| Mode | Candidate set |
+|---|---|
+| `no-filter` | All N documents |
+| `cat-filter` | Documents matching the query's category |
+| `cat+year` | Documents matching category **and** year ≥ query floor |
+
+Year floors are randomly assigned to real documents (uniform 2010–2024), so the `cat+year` filter excludes ~53% of in-category GT docs by construction — the Recall@10 ceiling is ~0.47 regardless of engine quality.
+
+### Benchmark results
+
+![Recall@10 vs corpus size at 10% candidates](plots/large_bench_recall_vs_n.svg)
+
+*Recall@10 vs N at 10% candidate fraction. HNSW / PLAID / WARP are scale-invariant; TACHIOM degrades as its category-routing centroids become noise-dominated.*
+
+![Recall@10 vs candidate fraction at N=1M](plots/large_bench_recall_vs_frac.svg)
+
+*Recall@10 vs candidate fraction at N=1M. Flat curves mean recall saturates quickly — 10% candidates is as good as 100% for these engines on this benchmark.*
+
+**Recall@10 · no-filter**
+
+| Engine | N=100K | N=1M | N=10M | N=100M |
+|---|---|---|---|---|
+| HNSW | 0.951 | 0.951 | 0.951 | 0.951 |
+| PLAID | 0.965 | 0.965 | 0.965 | 0.965 |
+| WARP | 0.965 | 0.965 | 0.965 | 0.965 |
+| TACHIOM | 0.937 | 0.696 | 0.661 | 0.649 |
+
+**Recall@10 · category filter**
+
+| Engine | N=100K | N=1M | N=10M | N=100M |
+|---|---|---|---|---|
+| HNSW | 0.857 | 0.900 | 0.900 | 0.875 |
+| PLAID | 0.923 | 0.923 | 0.923 | 0.923 |
+| WARP | 0.923 | 0.923 | 0.923 | 0.923 |
+| TACHIOM | 0.923 | 0.744 | 0.823 | 0.754 |
+
+**Recall@10 · category + year filter** *(ceiling ≈ 0.47 due to random year assignment)*
+
+| Engine | N=100K | N=1M | N=10M | N=100M |
+|---|---|---|---|---|
+| HNSW | 0.550 | 0.494 | 0.494 | 0.494 |
+| PLAID | 0.181 | 0.181 | 0.181 | 0.181 |
+| WARP | 0.494 | 0.494 | 0.494 | 0.494 |
+| TACHIOM | 0.141 | 0.077 | 0.121 | 0.131 |
+
+### Why each engine behaves this way
+
+**HNSW / PLAID / WARP — scale-invariant (assuming no bugs)**
+
+Random distractor tokens score near zero dot-product against any real Jina ColBERT query embedding — they are geometrically invisible. The signal from real GT docs is never diluted by distractors; it only becomes a smaller *fraction* of the corpus, not harder to find. Each of these engines finds the right neighborhood in embedding space regardless of how many random vectors surround it.
+
+The flat curves (same recall at 10% and 100% candidates) confirm that the engines saturate quickly — exploring more of the corpus doesn't help because the real docs are already in the top results.
+
+**TACHIOM — degrades at scale**
+
+TACHIOM uses a two-stage retrieval: (1) route each query token to the best-matching *category*, then (2) probe that category's centroid index. Stage 1 is the failure point.
+
+Category routing is done by asking: *which category's centroids are most similar to this query token?* At N=100K there are ~10K synthetic vectors per category; k-means with k=16 centroids still produces somewhat meaningful directions. At N=1M, each category has ~100K random vectors. In high dimensions, the mean of many random unit vectors converges toward zero — so the 16 centroids per category all collapse toward the origin, losing any discriminative direction. The routing step becomes effectively random, and routing to the wrong category completely excludes the relevant GT documents.
+
+With *category filter* applied, TACHIOM recovers partially — the correct category is enforced externally, bypassing the broken routing step.
+
+**PLAID vs WARP on cat+year filter (0.181 vs 0.494)**
+
+WARP's 0.494 is essentially the theoretical ceiling (~0.47) — its exact token-similarity scan over the already year-filtered candidates misses nothing.
+
+PLAID falls far short because its centroid index is built over the **union** of all 10 queries' candidate sets (spanning 8 categories × varying year floors ≈ 376K documents). When a query probes those centroids looking for its specific category + year subset, the retrieved candidates include docs from other categories and other year ranges. After filtering those out via the per-query candidate set, PLAID is left with a small fraction of its probed results. At low probe counts (1–8 centroids), many genuine GT docs are in centroids that were never probed — they simply aren't retrieved.
+
+The fix would be a separate centroid index per query (which is what `bench_plaid_large` supports), but `run_at_scale` shares one index for efficiency. This is the accuracy/efficiency tradeoff PLAID exposes when filters narrow the candidate set significantly.
+
+---
+
 ## Crate Structure
 
 ```
