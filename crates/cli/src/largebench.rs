@@ -34,7 +34,7 @@ const SYNTH_TOKENS: usize = 3;
 /// Memory warning threshold: 2 GB
 const MEM_WARN_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
-const SCALES: &[usize] = &[100_000, 1_000_000, 10_000_000];
+const SCALES: &[usize] = &[100_000, 1_000_000, 10_000_000, 100_000_000];
 
 /// Maps each of the 10 GT queries to one of the N_CATEGORIES categories.
 /// river=0, finance=1, construction_crane=2, bird_crane=3,
@@ -377,7 +377,7 @@ fn bench_plaid_large(
     let n_cands = candidate_indices.len();
     if n_cands == 0 { return vec![]; }
 
-    let k = ((n_cands as f64).sqrt() as usize).clamp(5, 200);
+    let k = ((n_cands as f64).sqrt() as usize).clamp(5, 64);
     let idx = CentIdx::build(docs, candidate_indices, k, rng);
 
     let probes = [1usize, 2, 3, 5, 8, k / 2, k];
@@ -571,7 +571,7 @@ fn run_at_scale(
         }
         println!("ok  (corpus size: {})", docs.len());
     } else {
-        // At 10M: only store real docs + a 1M sample for centroid training.
+        // At 10M+: only store real docs + a 1M sample for centroid training.
         // For recall purposes the GT docs are always present; distractors only affect
         // centroid routing and candidate set size.
         let sample_n = 1_000_000usize.min(n_synth);
@@ -799,7 +799,7 @@ fn run_at_scale(
         // ── PLAID ──
         {
             // Build one centroid index over the union candidate set for this filter
-            let k = ((n_union as f64).sqrt() as usize).clamp(5, 200);
+            let k = ((n_union as f64).sqrt() as usize).clamp(5, 64);
             let idx = CentIdx::build(&docs, &union_cands, k, &mut rng_local);
             let probes = [1usize, 2, 3, 5, 8, k.saturating_sub(1).max(1), k];
             let mut probe_pts: Vec<(f64, f64)> = Vec::new();
@@ -842,7 +842,7 @@ fn run_at_scale(
 
         // ── WARP ──
         {
-            let thresholds = [0.95f32, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10];
+            let thresholds = [0.95f32, 0.85, 0.75, 0.65, 0.50, 0.35, 0.20, 0.10];
             let mut pts: Vec<(f64, f64)> = Vec::new();
             for &t in &thresholds {
                 let (mut tot_f, mut tot_r) = (0.0f64, 0.0f64);
@@ -881,7 +881,7 @@ fn run_at_scale(
 
         // ── TACHIOM ──
         {
-            let k_per_cat = ((n_union as f64).sqrt() as usize / N_CATEGORIES).clamp(3, 30);
+            let k_per_cat = ((n_union as f64).sqrt() as usize / N_CATEGORIES).clamp(3, 16);
             // Build per-category centroid indices over the union candidate set
             let cat_idxs: Vec<CentIdx> = (0..N_CATEGORIES).map(|cat| {
                 let cat_cands: Vec<usize> = union_cands.iter().copied()
@@ -1221,7 +1221,7 @@ pub async fn run_large_bench(_vocab_path: &Path) -> Result<()> {
     println!("{CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}");
     println!("{BOLD}  Large-Scale Needle-in-Haystack Benchmark{RESET}");
     println!("{DIM}  100 real docs (Jina ColBERT) in a growing synthetic corpus");
-    println!("  Scales: 100K / 1M / 10M   Filters: none / category / cat+year");
+    println!("  Scales: 100K / 1M / 10M / 100M   Filters: none / category / cat+year");
     println!("  Engines: HNSW / PLAID / WARP / TACHIOM{RESET}");
     println!("{CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}");
     println!();
