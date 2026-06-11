@@ -3,6 +3,7 @@ mod compare;
 mod demo;
 mod gtbench;
 mod largebench;
+mod msmarco;
 mod repl;
 mod scalebench;
 mod tradeoffbench;
@@ -153,6 +154,9 @@ async fn main() -> anyhow::Result<()> {
         TopCommand::LargeBench => {
             let vp = vocab_path();
             largebench::run_large_bench(&vp).await?;
+        }
+        TopCommand::EmbedMsMarco { collection, out_dir, jina_only, voyage_only } => {
+            msmarco::run_embed_msmarco(&collection, &out_dir, jina_only, voyage_only).await?;
         }
         TopCommand::Bench { target } => {
             let runner = bench::BenchRunner::new();

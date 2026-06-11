@@ -21,7 +21,7 @@ impl JinaColBertClient {
 
     /// Fetch per-token ColBERT embeddings for a batch of texts.
     /// Returns one TokenMatrix per input text (rows = per-token 128-dim vectors).
-    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<TokenMatrix>> {
+    pub async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<TokenMatrix>> {
         let body = serde_json::json!({
             "model": MODEL,
             "input": texts,

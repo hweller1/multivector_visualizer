@@ -49,6 +49,26 @@ pub enum TopCommand {
     /// Tests HNSW / PLAID / WARP / TACHIOM with no-filter / category / cat+year modes.
     /// Generates SVG plots in plots/ directory.  Requires gt-bench cache to exist first.
     LargeBench,
+    /// Embed MS MARCO passages for real-data benchmarking.
+    /// Requires JINA_API_KEY and/or VOYAGE_API_KEY in .env.
+    /// Resume-safe: file sizes track progress; rerun to continue after interruption.
+    EmbedMsMarco {
+        /// Path to MS MARCO collection.tsv (tab-separated: passage_id\tpassage_text).
+        /// Download: https://msmarco.blob.core.windows.net/msmarcoranking/collection.tar.gz
+        collection: std::path::PathBuf,
+
+        /// Output directory for binary embedding files.
+        #[arg(long, default_value = "data/msmarco")]
+        out_dir: std::path::PathBuf,
+
+        /// Embed only with Jina ColBERT v2 (skip Voyage-4-large).
+        #[arg(long)]
+        jina_only: bool,
+
+        /// Embed only with Voyage-4-large (skip Jina ColBERT v2).
+        #[arg(long)]
+        voyage_only: bool,
+    },
 }
 
 #[derive(Subcommand)]

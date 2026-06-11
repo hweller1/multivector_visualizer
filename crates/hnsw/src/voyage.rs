@@ -73,9 +73,9 @@ impl VoyageClient {
         batch.pop().ok_or_else(|| anyhow!("empty embedding batch"))
     }
 
-    // ── internals ──────────────────────────────────────────────────────────
+    // ── batch API ──────────────────────────────────────────────────────────
 
-    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
+    pub async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
         let input: Vec<&str> = texts.to_vec();
         let body = serde_json::json!({
             "model": self.model,
