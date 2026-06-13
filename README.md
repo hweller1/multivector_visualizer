@@ -384,6 +384,47 @@ The fix would be a separate centroid index per query (which is what `bench_plaid
 
 ---
 
+## MS MARCO Real-Data Pipeline
+
+To benchmark against real retrieval data rather than synthetic distractors, the CLI can embed 5M passages from the MS MARCO dataset:
+
+```bash
+# Download (~987 MB compressed, ~2.9 GB extracted)
+mkdir -p data/msmarco
+curl -L https://msmarco.z22.web.core.windows.net/msmarcoranking/collection.tar.gz \
+  -o data/msmarco/collection.tar.gz
+tar -xzf data/msmarco/collection.tar.gz -C data/msmarco/
+
+# Embed (resume-safe — rerun to continue after any interruption)
+cargo run --release -- embed-msmarco data/msmarco/collection.tsv --limit 5000000
+```
+
+Output layout under `data/msmarco/`:
+
+```
+jina/
+  offsets.bin   u64[N]           byte offsets into data.bin
+  lengths.bin   u32[N]           token count per passage
+  data.bin      f32[Σtokens×128] Jina ColBERT v2 token embeddings  (~207 GB)
+  meta.json
+voyage/
+  data.bin      f32[N×1024]      Voyage-4-large sentence embeddings  (~20 GB)
+  meta.json
+```
+
+### One-time setup cost
+
+| Model | API | Passages | Approx. cost | Time |
+|---|---|---|---|---|
+| Jina ColBERT v2 (128-dim) | `api.jina.ai` | 5M | **~$5.70** | ~3 days\* |
+| Voyage-4-large (1024-dim) | MongoDB-proxied | 5M | **~$50** | ~15 hours |
+
+\* Jina free tier caps at 2 concurrent requests; throughput is ~700 passages/min.
+
+Costs are proportional to the `--limit` value — halving the passage count halves the cost. Embeddings are written in append-only binary format, so the run can be interrupted and resumed at zero re-embedding cost for already-processed passages.
+
+---
+
 ## Crate Structure
 
 ```

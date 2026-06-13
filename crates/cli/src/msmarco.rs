@@ -30,18 +30,20 @@ use tokio::{sync::Semaphore, task::JoinSet};
 
 const JINA_BATCH: usize = 32;
 const VOYAGE_BATCH: usize = 128;
-const JINA_CONCURRENCY: usize = 16;
+const JINA_CONCURRENCY: usize = 2;  // Jina free tier: 2 concurrent requests max
 const VOYAGE_CONCURRENCY: usize = 8;
 const MACRO_BATCH: usize = 3_200;
 const VOYAGE_DIM: usize = 1024;
-const TOTAL_EST: usize = 8_841_823;
+const TOTAL_FULL: usize = 8_841_823;
 
 pub async fn run_embed_msmarco(
     collection_tsv: &Path,
     out_dir: &Path,
     jina_only: bool,
     voyage_only: bool,
+    limit: Option<usize>,
 ) -> Result<()> {
+    let total = limit.unwrap_or(TOTAL_FULL).min(TOTAL_FULL);
     let do_jina = !voyage_only;
     let do_voyage = !jina_only;
 
@@ -61,31 +63,32 @@ pub async fn run_embed_msmarco(
     println!("  MS MARCO embedding pipeline");
     println!("  Input:  {}", collection_tsv.display());
     println!("  Output: {}", out_dir.display());
+    println!("  Target: {total} passages");
     if do_jina {
-        println!("  Jina done:   {jina_done} / {TOTAL_EST}");
+        println!("  Jina done:   {jina_done} / {total}");
     }
     if do_voyage {
-        println!("  Voyage done: {voyage_done} / {TOTAL_EST}");
+        println!("  Voyage done: {voyage_done} / {total}");
     }
 
     // Each model makes an independent sequential pass over the TSV.
     // Reads the file twice but avoids complex interleaved-progress logic.
-    if do_jina && jina_done < TOTAL_EST {
+    if do_jina && jina_done < total {
         let client = Arc::new(
             JinaColBertClient::from_env()
                 .ok_or_else(|| anyhow!("JINA_API_KEY required — set it in .env"))?,
         );
-        embed_jina_pass(collection_tsv, &jina_dir, jina_done, client).await?;
+        embed_jina_pass(collection_tsv, &jina_dir, jina_done, total, client).await?;
     } else if do_jina {
         println!("  [jina] already complete ({jina_done} passages)");
     }
 
-    if do_voyage && voyage_done < TOTAL_EST {
+    if do_voyage && voyage_done < total {
         let client = Arc::new(
             VoyageClient::from_env()
                 .ok_or_else(|| anyhow!("VOYAGE_API_KEY required — set it in .env"))?,
         );
-        embed_voyage_pass(collection_tsv, &voyage_dir, voyage_done, client).await?;
+        embed_voyage_pass(collection_tsv, &voyage_dir, voyage_done, total, client).await?;
     } else if do_voyage {
         println!("  [voyage] already complete ({voyage_done} passages)");
     }
@@ -94,7 +97,7 @@ pub async fn run_embed_msmarco(
     if do_jina {
         let n = jina_passages_done(&jina_dir);
         write_meta(&jina_dir, n, TOKEN_DIM, colbert::jina::MODEL)?;
-        println!("  [jina] meta.json: count={n}");
+        println!("  [jina]   meta.json: count={n}");
     }
     if do_voyage {
         let n = voyage_passages_done(&voyage_dir);
@@ -115,6 +118,7 @@ async fn embed_jina_pass(
     tsv: &Path,
     out_dir: &Path,
     start_from: usize,
+    total: usize,
     client: Arc<JinaColBertClient>,
 ) -> Result<()> {
     println!("  [jina] embedding from passage {start_from} …");
@@ -131,7 +135,7 @@ async fn embed_jina_pass(
         File::open(tsv).with_context(|| format!("opening {}", tsv.display()))?,
     );
 
-    for (line_no, line_result) in reader.lines().enumerate().skip(start_from) {
+    for (line_no, line_result) in reader.lines().enumerate().skip(start_from).take(total - start_from) {
         let line = line_result?;
         batch.push(parse_text(&line, line_no)?);
 
@@ -141,7 +145,7 @@ async fn embed_jina_pass(
                     .await?;
             count += batch.len();
             batch.clear();
-            print_progress("[jina]", count);
+            print_progress("[jina]", count, total);
         }
     }
 
@@ -239,6 +243,7 @@ async fn embed_voyage_pass(
     tsv: &Path,
     out_dir: &Path,
     start_from: usize,
+    total: usize,
     client: Arc<VoyageClient>,
 ) -> Result<()> {
     println!("  [voyage] embedding from passage {start_from} …");
@@ -251,7 +256,7 @@ async fn embed_voyage_pass(
         File::open(tsv).with_context(|| format!("opening {}", tsv.display()))?,
     );
 
-    for (line_no, line_result) in reader.lines().enumerate().skip(start_from) {
+    for (line_no, line_result) in reader.lines().enumerate().skip(start_from).take(total - start_from) {
         let line = line_result?;
         batch.push(parse_text(&line, line_no)?);
 
@@ -259,7 +264,7 @@ async fn embed_voyage_pass(
             flush_voyage(&client, &batch, &mut data_f).await?;
             count += batch.len();
             batch.clear();
-            print_progress("[voyage]", count);
+            print_progress("[voyage]", count, total);
         }
     }
 
@@ -381,8 +386,8 @@ fn write_meta(dir: &Path, count: usize, dim: usize, model: &str) -> Result<()> {
     Ok(())
 }
 
-fn print_progress(tag: &str, count: usize) {
-    let pct = (count as f64 / TOTAL_EST as f64 * 100.0).min(100.0);
-    print!("\r  {tag} {pct:5.1}%  {count}/{TOTAL_EST}");
+fn print_progress(tag: &str, count: usize, total: usize) {
+    let pct = (count as f64 / total as f64 * 100.0).min(100.0);
+    print!("\r  {tag} {pct:5.1}%  {count}/{total}");
     let _ = std::io::stdout().flush();
 }

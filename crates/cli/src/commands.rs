@@ -52,6 +52,7 @@ pub enum TopCommand {
     /// Embed MS MARCO passages for real-data benchmarking.
     /// Requires JINA_API_KEY and/or VOYAGE_API_KEY in .env.
     /// Resume-safe: file sizes track progress; rerun to continue after interruption.
+    #[command(name = "embed-msmarco")]
     EmbedMsMarco {
         /// Path to MS MARCO collection.tsv (tab-separated: passage_id\tpassage_text).
         /// Download: https://msmarco.blob.core.windows.net/msmarcoranking/collection.tar.gz
@@ -68,6 +69,10 @@ pub enum TopCommand {
         /// Embed only with Voyage-4-large (skip Jina ColBERT v2).
         #[arg(long)]
         voyage_only: bool,
+
+        /// Stop after this many passages (default: embed all).
+        #[arg(long)]
+        limit: Option<usize>,
     },
 }
 
