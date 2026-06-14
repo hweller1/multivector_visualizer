@@ -162,15 +162,15 @@ Candidate set (% of corpus, log scale)
 <circle cx="420" cy="265" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="451" cy="149" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="474" cy="58" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="64,441 83,415 136,391 190,350 244,251 295,145 349,103 420,92 "/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="64,441 83,415 136,376 190,344 244,258 295,169 349,118 420,111 "/>
 <circle cx="64" cy="441" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <circle cx="83" cy="415" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="136" cy="391" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="190" cy="350" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="244" cy="251" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="295" cy="145" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="349" cy="103" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="420" cy="92" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="136" cy="376" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="190" cy="344" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="244" cy="258" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="295" cy="169" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="349" cy="118" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="420" cy="111" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="345,72 349,58 349,58 349,58 349,58 379,58 435,58 452,58 474,58 "/>
 <circle cx="345" cy="72" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
 <circle cx="349" cy="58" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
@@ -392,11 +392,11 @@ Candidate set (% of corpus, log scale)
 <circle cx="899" cy="263" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="934" cy="161" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
 <circle cx="959" cy="58" r="4" opacity="1" fill="#8C8C8C" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="507,437 564,400 623,354 702,166 "/>
-<circle cx="507" cy="437" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="564" cy="400" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="623" cy="354" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
-<circle cx="702" cy="166" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#FF7F0E" stroke-width="2" points="507,417 564,372 623,309 702,221 "/>
+<circle cx="507" cy="417" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="564" cy="372" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="623" cy="309" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
+<circle cx="702" cy="221" r="4" opacity="1" fill="#FF7F0E" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#2166AC" stroke-width="2" points="796,129 812,70 817,64 820,61 820,58 821,58 821,58 821,58 959,58 "/>
 <circle cx="796" cy="129" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>
 <circle cx="812" cy="70" r="4" opacity="1" fill="#2166AC" stroke="none" stroke-width="1"/>

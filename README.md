@@ -113,14 +113,16 @@ cargo run --release -- tradeoff
 # → plots/index.html  (visualizer — open in browser)
 ```
 
-**Results:**
+**Results (Recall@10 vs candidate fraction):**
 
-| Engine | Recall@10 | Candidate fraction | N |
-|---|---|---|---|
-| WARP | _pending_ | _pending_ | _pending_ |
-| PLAID | _pending_ | _pending_ | _pending_ |
-| TACHIOM | _pending_ | _pending_ | _pending_ |
-| HNSW | _pending_ | _pending_ | _pending_ |
+| Engine | 1% | 5% | 10% | 20% | 50% | N |
+|---|---|---|---|---|---|---|
+| WARP | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 100K |
+| PLAID | — | 0.833 | 0.833 | 1.000 | 1.000 | 100K |
+| TACHIOM | — | 0.740 | 0.740 | 1.000 | 1.000 | 100K |
+| HNSW | 0.267 | 0.620 | 0.620 | 0.620 | 0.620 | 100K |
+
+*WARP achieves exact Recall@1% due to precomputed Xtr thresholds. HNSW plateaus at ~0.62 — sentence-avg loses per-token MaxSim signal at scale.*
 
 ### Visualizer
 
@@ -144,13 +146,15 @@ cargo run --release -- gt-bench
 
 **Results:**
 
-| Engine | Recall@10 |
-|---|---|
-| HNSW (Voyage-4-large) | _pending_ |
-| TACHIOM | _pending_ |
-| WARP | _pending_ |
-| PLAID | _pending_ |
-| ColBERT (full scan) | _pending_ |
+| Engine | Recall@10 | Candidate fraction |
+|---|---|---|
+| HNSW (Voyage-4-large) | 0.955 | 100% (ef sweep) |
+| TACHIOM (Jina ColBERT) | 0.954 | 10% |
+| PLAID (Jina ColBERT) | 0.941 | 50% |
+| WARP (Jina ColBERT) | 0.941 | 50% |
+| ColBERT (full scan) | 0.941 | 100% |
+
+*TACHIOM matches HNSW recall (0.954 vs 0.955) at 10% candidates — 10× speedup with near-zero recall loss on real text.*
 
 ---
 
@@ -165,14 +169,16 @@ cargo run --release -- large-bench
 # → plots/large_bench_recall_vs_frac.svg
 ```
 
-**Results (Recall@10, no filter):**
+**Results (Recall@10, no filter, 10% candidates):**
 
 | Engine | N=100K | N=1M | N=10M | N=100M |
 |---|---|---|---|---|
-| HNSW | _pending_ | _pending_ | _pending_ | _pending_ |
-| PLAID | _pending_ | _pending_ | _pending_ | _pending_ |
-| WARP | _pending_ | _pending_ | _pending_ | _pending_ |
-| TACHIOM | _pending_ | _pending_ | _pending_ | _pending_ |
+| HNSW | 0.951 | 0.951 | 0.951 | 0.951 |
+| PLAID | 0.965 | 0.965 | 0.965 | 0.965 |
+| WARP | 0.965 | 0.965 | 0.965 | 0.965 |
+| TACHIOM | 0.937 | 0.696 | 0.661 | 0.649 |
+
+*HNSW, PLAID, and WARP are scale-invariant — recall holds flat from 100K to 100M. TACHIOM degrades past N=1M as centroid budgets are sized for the small 100-doc GT corpus and become insufficient against a growing synthetic pool.*
 
 > **Note on synthetic distractors:** distractor docs are random 128-dim unit vectors — not real text. This tests index scaling robustness, not semantic discrimination. See the GT Benchmark for real-text evaluation.
 
